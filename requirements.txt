@@ -3,3 +3,7 @@ pandas
 plotly
 gunicorn
 yfinance
+python-telegram-bot
+langchain-groq
+nest-asyncio
+python-dotenv
