@@ -1,119 +1,125 @@
 import os, threading, asyncio, logging, time, datetime
 import yfinance as yf
-import pandas as pd
 from flask import Flask
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage
 
-# --- الإعدادات اللوجستية ---
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# --- الإعدادات الفنية ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 TOKEN = "7987600648:AAFsGFuAqOandpZAwh1g1wia5zv6OutySdQ"
 GK_KEY = os.environ.get("GROQ_API_KEY")
 MY_ID = 6758877303
+LEARNING_FILE = "empire_intelligence.txt"
 
 app = Flask(__name__)
 
-# قاعدة بيانات الـ 100 شركة وأرشيف التعلم
-S_P_100 = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "META", "BRK-B", "V", "JNJ", "WMT", "JPM", "MA", "PG", "UNH"] # يمكن إكمالها لـ 100
-LEARNING_LOG = "empire_knowledge.txt"
+# قائمة الـ 100 شركة (عينة تمثيلية يمكن توسيعها)
+TOP_100 = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "META", "AVGO", "ASML", "COST", "NFLX", "ADBE", "AMD", "INTC", "PYPL"]
 
 @app.route('/')
 def home():
-    return f"Empire OS v4.0: Autonomous Learning Engine Online. Knowledge size: {os.path.getsize(LEARNING_LOG) if os.path.exists(LEARNING_LOG) else 0} bytes"
+    size = os.path.getsize(LEARNING_FILE) if os.path.exists(LEARNING_FILE) else 0
+    return f"Empire OS v5.0: Status ACTIVE. Knowledge Base: {size} bytes. System is learning..."
 
-# --- 1. وظيفة التعلم الذاتي والبحث (تشتغل وأنت نائم) ---
-async def autonomous_learning_cycle(application):
+# --- 1. محرك التحليل والتعلم الذاتي ---
+async def learn_and_analyze(application):
+    """هذه الدورة تعمل وأنت نائم لجمع المعلومات وتحليل الفرص"""
+    llm = ChatGroq(temperature=0.2, model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY)
+    
     while True:
-        current_hour = datetime.datetime.now().hour
-        logging.info(f"Autonomous Cycle: System is studying market trends... (Hour: {current_hour})")
-        
-        study_topic = "Advanced Stock Analysis & Cybersecurity Risks in 2026"
-        llm = ChatGroq(model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY)
-        
         try:
-            # محاكاة البحث والتعلم (يمكن ربطها بـ API بحث مستقبلاً)
-            learning_prompt = f"البحث في أحدث استراتيجيات الاستثمار لعام 2026 لشركات الـ S&P 100 وتلخيص أهم 5 نصائح لبيعها كمنتج توصيات."
-            summary = llm.invoke([HumanMessage(content=learning_prompt)])
+            now = datetime.datetime.now()
+            logging.info(f"Starting learning cycle at {now}")
             
-            with open(LEARNING_LOG, "a", encoding="utf-8") as f:
-                f.write(f"\n--- Study Session {datetime.datetime.now()} ---\n{summary.content}\n")
-            
-            # إذا كانت الساعة 7 صباحاً، أرسل تقرير الصباح للمدير
-            if current_hour == 7:
-                await application.bot.send_message(chat_id=MY_ID, text="🌅 صباح الخير مدير هاني. لقد أتممت دورة التعلم الليلي. إليك ملخص الفرص الجاهزة للبيع اليوم...")
-        
+            summary_report = "--- تقرير الفرص المكتشفة ---\n"
+            found_opportunity = False
+
+            for ticker in TOP_100:
+                stock = yf.Ticker(ticker)
+                hist = stock.history(period="5d")
+                if hist.empty: continue
+                
+                # حساب تقني سريع (RSI مبسط)
+                current_price = hist['Close'].iloc[-1]
+                prev_price = hist['Close'].iloc[-2]
+                change = ((current_price - prev_price) / prev_price) * 100
+                
+                # معايير التنبيه: حركة قوية أو وصول لنقطة شراء
+                if abs(change) > 2.5: 
+                    found_opportunity = True
+                    analysis_prompt = f"حلل حركة سهم {ticker} السعرية الحالية (${current_price:.2f}, تغير {change:.2f}%). هل هذه فرصة شراء أم بيع بناءً على استراتيجيات النمو لعام 2026؟ اجعل الرد قصيراً واحترافياً للبيع كاستشارة."
+                    ai_opinion = llm.invoke([HumanMessage(content=analysis_prompt)])
+                    
+                    report_entry = f"📍 {ticker}: ${current_price:.2f} ({change:+.2f}%)\n💡 AI: {ai_opinion.content}\n"
+                    summary_report += report_entry
+                    
+                    # حفظ في ذاكرة النظام
+                    with open(LEARNING_FILE, "a", encoding="utf-8") as f:
+                        f.write(f"[{now}] {report_entry}\n")
+
+            if found_opportunity:
+                await application.bot.send_message(chat_id=MY_ID, text=f"🚀 هاني، اكتشفت فرصاً أثناء مراقبتي للسوق:\n\n{summary_report}")
+
+            # تعلم عام عن السوق (محاكاة قراءة الكتب والتقارير)
+            learning_prompt = "اكتب دراسة حالة قصيرة عن أفضل استراتيجية تداول لشركات التكنولوجيا في 2026 لتعزيز أرباح المحفظة بنسبة 20%."
+            knowledge = llm.invoke([HumanMessage(content=learning_prompt)])
+            with open(LEARNING_FILE, "a", encoding="utf-8") as f:
+                f.write(f"\n[KNOWLEDGE_{now}] {knowledge.content}\n")
+
         except Exception as e:
-            logging.error(f"Learning Error: {e}")
+            logging.error(f"Error in learning cycle: {e}")
         
-        await asyncio.sleep(7200) # دورة كل ساعتين
+        await asyncio.sleep(3600) # كرر العملية كل ساعة
 
-# --- 2. رادار صيد الصفقات (المنتج المالي) ---
-def analyze_opportunity(ticker):
-    try:
-        stock = yf.Ticker(ticker)
-        df = stock.history(period="1mo")
-        # حساب بسيط لمؤشر القوة النسبية (RSI) لاكتشاف فرص الشراء
-        delta = df['Close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
-        rsi = 100 - (100 / (1 + rs))
-        
-        current_price = df['Close'].iloc[-1]
-        change = ((current_price - df['Close'].iloc[-2]) / df['Close'].iloc[-2]) * 100
-        
-        status = "HOLD"
-        if rsi.iloc[-1] < 30: status = "BUY (Oversold)"
-        elif rsi.iloc[-1] > 70: status = "SELL (Overbought)"
-        
-        return f"📍 {ticker}: ${current_price:.2f} | RSI: {rsi.iloc[-1]:.1f} | Action: {status}", (status != "HOLD")
-    except: return None, False
-
-async def operational_radar(application):
-    while True:
-        for ticker in S_P_100:
-            report, is_urgent = analyze_opportunity(ticker)
-            if is_urgent:
-                await application.bot.send_message(chat_id=MY_ID, text=f"💰 فرصة ذهبية مكتشفة:\n{report}")
-        await asyncio.sleep(3600)
-
-# --- 3. معالج الرسائل (الواجهة الاحترافية) ---
+# --- 2. معالج الرسائل الذكي ---
 async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != MY_ID: return
+    if not update.message or update.effective_user.id != MY_ID: return
     
-    user_msg = update.message.text
-    llm = ChatGroq(temperature=0.3, model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY)
+    llm = ChatGroq(temperature=0.1, model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY)
+    query = update.message.text
     
-    # قراءة ما تعلمه النظام للرد بدقة
-    context_data = ""
-    if os.path.exists(LEARNING_LOG):
-        with open(LEARNING_LOG, "r", encoding="utf-8") as f:
-            context_data = f.readlines()[-20:] # آخر 20 سطر مما تعلمه
-    
-    response = llm.invoke([
-        SystemMessage(content=f"أنت Empire OS. استخدم ما تعلمته لتقديم رد احترافي جاهز للبيع كاستشارة مالية: {context_data}"),
-        HumanMessage(content=user_msg)
-    ])
+    # استحضار الذاكرة
+    memory = ""
+    if os.path.exists(LEARNING_FILE):
+        with open(LEARNING_FILE, "r", encoding="utf-8") as f:
+            memory = "".join(f.readlines()[-15:]) # آخر 15 سطر معلومات
+
+    system_msg = f"أنت Empire OS، كيان استثماري متطور. هاني هو المدير. استخدم معلوماتك المحدثة: {memory}"
+    response = llm.invoke([SystemMessage(content=system_msg), HumanMessage(content=query)])
     await update.message.reply_text(response.content)
 
-# --- نظام التشغيل المتوازي ---
-def run_background_loop(application):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    # تشغيل الرادار والتعلم معاً
-    loop.create_task(autonomous_learning_cycle(application))
-    loop.create_task(operational_radar(application))
-    loop.run_forever()
+# --- 3. تشغيل النظام ومنع التضارب (Anti-Conflict) ---
+def run_flask():
+    app.run(host='0.0.0.0', port=10000)
 
-if __name__ == '__main__':
-    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000, use_reloader=False), daemon=True).start()
-    
+async def main():
+    # بناء التطبيق مع نظام معالجة الأخطاء
     application = ApplicationBuilder().token(TOKEN).build()
+    
+    # إضافة المعالجات
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_msg))
     
-    threading.Thread(target=run_background_loop, args=(application,), daemon=True).start()
+    # تشغيل دورة التعلم في الخلفية
+    asyncio.create_task(learn_and_analyze(application))
     
-    logging.info("Empire OS v4.0 Global Deployment Successful.")
-    application.run_polling()
+    # بدء البوت مع تنظيف أي جلسات قديمة لمنع خطأ 409
+    logging.info("Starting Empire OS v5.0...")
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling(drop_pending_updates=True) # حذف أي رسائل قديمة متراكمة
+    
+    # ابقاء النظام يعمل
+    while True:
+        await asyncio.sleep(1)
+
+if __name__ == '__main__':
+    # تشغيل Flask في خيط منفصل
+    threading.Thread(target=run_flask, daemon=True).start()
+    
+    # تشغيل المحرك الرئيسي
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass
