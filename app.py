@@ -1,57 +1,42 @@
-import os
-import threading
-import asyncio
+import os, threading, asyncio
 from flask import Flask
-import yfinance as yf
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage
 
-# إعدادات الهوية
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+# إحضار المفاتيح
+TOKEN = os.environ.get("TELEGRAM_TOKEN")
+GK_KEY = os.environ.get("GROQ_API_KEY")
 
 app = Flask(__name__)
 
-# إعداد الذكاء الاصطناعي
-if GROQ_API_KEY:
-    llm = ChatGroq(temperature=0.3, model_name="llama-3.3-70b-versatile", groq_api_key=GROQ_API_KEY)
-else:
-    llm = None
-
 @app.route('/')
-def index():
-    return "<h1>Empire OS: Online & Secure</h1><p>المدير التنفيذي قيد العمل في الخلفية...</p>"
+def home():
+    return f"Status: Server is Active. Bot Token Present: {bool(TOKEN)}"
 
-@app.route('/health')
-def health():
-    return "OK", 200
+async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # المدير يرد فوراً لتأكيد العمل
+    await update.message.reply_text("✅ المدير استلم رسالتك، جاري الربط مع Groq...")
+    try:
+        llm = ChatGroq(temperature=0, model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY)
+        resp = llm.invoke([SystemMessage(content="أنت مدير مالي"), HumanMessage(content=update.message.text)])
+        await update.message.reply_text(resp.content)
+    except Exception as e:
+        await update.message.reply_text(f"❌ خطأ في Groq: {str(e)}")
 
-# منطق البوت
-async def process_ai_response(user_input):
-    if not llm: return "المفتاح مفقود!"
-    messages = [SystemMessage(content="أنت المدير التنفيذي لـ Empire OS. رد بالعربية."), HumanMessage(content=user_input)]
-    return llm.invoke(messages).content
-
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message:
-        answer = await process_ai_response(update.message.text)
-        await update.message.reply_text(answer)
-
-def run_telegram_bot():
-    if not TELEGRAM_TOKEN: return
+def run_bot():
+    if not TOKEN:
+        print("❌ خطأ حرج: TELEGRAM_TOKEN غير موجود!")
+        return
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    app_bot = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    app_bot.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
-    app_bot.run_polling(drop_pending_updates=True)
+    bot_app = ApplicationBuilder().token(TOKEN).build()
+    bot_app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_msg))
+    print("🤖 البوت بدأ بالعمل الآن...")
+    bot_app.run_polling(drop_pending_updates=True)
 
-# التشغيل الذكي
 if __name__ == '__main__':
-    # تشغيل البوت أولاً في خيط مستقل
-    threading.Thread(target=run_telegram_bot, daemon=True).start()
-    
-    # تشغيل Flask مع تحديد البورت بدقة لـ Render
+    threading.Thread(target=run_bot, daemon=True).start()
     port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port)
