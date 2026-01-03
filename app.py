@@ -8,27 +8,39 @@ from langchain_core.messages import HumanMessage, SystemMessage
 # إحضار المفاتيح
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GK_KEY = os.environ.get("GROQ_API_KEY")
-MY_TELEGRAM_ID = 675887303 
+
+# --- تم التحديث بالرقم الصحيح الذي ظهر في الاختبار ---
+MY_TELEGRAM_ID = 6758877303 
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "<h1>Empire OS: Online</h1><p>تم حل مشكلة التضارب بنجاح.</p>"
+    return "<h1>Empire OS: Identity Verified</h1><p>الوصول مسموح للمدير فقط.</p>"
 
 async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text: return
     
     user_id = update.effective_user.id
+    user_text = update.message.text
+
+    # التحقق النهائي من الهوية
     if MY_TELEGRAM_ID and user_id != MY_TELEGRAM_ID:
-        await update.message.reply_text(f"⚠️ الوصول محصور للمدير فقط. رقمك: {user_id}")
+        await update.message.reply_text(f"⚠️ وصول مرفوض. النظام محمي.")
         return
 
     try:
         llm = ChatGroq(temperature=0.3, model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY)
+        
+        # التوجيه بين المدير وسايبر (خبير الأمن)
+        if any(word in user_text.lower() for word in ["أمن", "حماية", "اختراق", "تأمين", "ثغرة", "security"]):
+            system_prompt = "أنت (سايبر) خبير أمن المعلومات في Empire OS. رد بحزم وتقنية وبالعربية."
+        else:
+            system_prompt = "أنت المدير التنفيذي لـ Empire OS. هدفك أعلى عائد من أفضل 100 شركة. رد باحترافية وبالعربية."
+
         resp = llm.invoke([
-            SystemMessage(content="أنت المدير التنفيذي لـ Empire OS. هدفك أعلى عائد من أفضل 100 شركة. رد بالعربية."),
-            HumanMessage(content=update.message.text)
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_text)
         ])
         await update.message.reply_text(resp.content)
     except Exception as e:
@@ -38,14 +50,9 @@ def run_bot():
     if not TOKEN: return
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    
-    # بناء البوت مع ميزة مسح التحديثات العالقة
     bot_app = ApplicationBuilder().token(TOKEN).build()
     bot_app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_msg))
-    
-    print("🚀 جاري تنظيف الاتصالات القديمة وبدء البوت...")
-    
-    # الحل البرمجي لـ Conflict: مسح أي اتصال قديم (drop_pending_updates)
+    # drop_pending_updates=True تضمن عدم حدوث Conflict مرة أخرى
     bot_app.run_polling(drop_pending_updates=True, close_loop=False, stop_signals=None)
 
 if __name__ == '__main__':
