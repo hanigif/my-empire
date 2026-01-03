@@ -1,39 +1,53 @@
-import os, threading, asyncio, logging
-from flask import Flask, request, abort
+import os, threading, asyncio
+from flask import Flask
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage
 
-# --- إعدادات الفريق والهوية ---
+# إحضار المفاتيح من البيئة
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GK_KEY = os.environ.get("GROQ_API_KEY")
-# ضع الرقم الذي تعتقد أنه صحيح هنا
-MY_TELEGRAM_ID = 675887303 
-
-# إعداد السجلات لمراقبة الأمان
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "<h1>Empire OS: Security Shield Active</h1>"
+    return "<h1>Empire OS: Active</h1><p>المدير يعمل الآن بنظام التوافق مع السيرفر.</p>"
 
 async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.text: return
-    
-    user_id = update.effective_user.id
-    user_text = update.message.text
-
-    # --- نظام التحقق الذكي من الهوية ---
-    if MY_TELEGRAM_ID and user_id != MY_TELEGRAM_ID:
-        logger.warning(f"🚫 محاولة وصول من ID: {user_id}")
-        # هذه الرسالة ستظهر لك لمرة واحدة لتصحيح الـ ID إذا كان خطأ
-        await update.message.reply_text(f"⚠️ وصول مرفوض. رقم تعريفك الفعلي هو: {user_id}\nيرجى تحديثه في الكود لفتح القلعة.")
-        return 
-
+    if not update.message: return
     try:
-        # إعداد الذكاء الاصطناعي (Llama 3.3)
-        llm = Chat
+        # استشارة المدير (Groq)
+        llm = ChatGroq(temperature=0.3, model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY)
+        resp = llm.invoke([
+            SystemMessage(content="أنت المدير التنفيذي لـ Empire OS. هدفك أعلى عائد من أفضل 100 شركة. رد بالعربية."),
+            HumanMessage(content=update.message.text)
+        ])
+        await update.message.reply_text(resp.content)
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ عذراً، واجهت مشكلة في التحليل: {str(e)}")
+
+def run_bot():
+    if not TOKEN: return
+    
+    # إعداد حلقة الأحداث (Event Loop)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    # بناء البوت
+    bot_app = ApplicationBuilder().token(TOKEN).build()
+    bot_app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_msg))
+    
+    print("🤖 [Empire OS] البوت يبدأ الآن في وضع التوافق...")
+    
+    # الحل السحري: تعطيل إشارات النظام ليعمل في خيط خلفي
+    bot_app.run_polling(close_loop=False, stop_signals=None)
+
+if __name__ == '__main__':
+    # تشغيل البوت في خيط خلفي
+    threading.Thread(target=run_bot, daemon=True).start()
+    
+    # تشغيل واجهة الويب
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
