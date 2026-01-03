@@ -8,7 +8,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 # --- إعدادات الفريق والهوية ---
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GK_KEY = os.environ.get("GROQ_API_KEY")
-MY_TELEGRAM_ID = 5174488340 # ضع هنا الـ ID الخاص بك الذي حصلت عليه من @userinfobot
+MY_TELEGRAM_ID = 675887303 # ضع هنا الـ ID الخاص بك الذي حصلت عليه من @userinfobot
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -67,3 +67,4 @@ if __name__ == '__main__':
     threading.Thread(target=run_bot, daemon=True).start()
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
+
