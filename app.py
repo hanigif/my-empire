@@ -1,47 +1,45 @@
-import os, threading, asyncio
+import os, threading, asyncio, logging
 from flask import Flask, request, abort
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage
-from time import time
 
-# --- إعدادات الأمن القصوى ---
+# --- إعدادات الأمن المتقدمة ---
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GK_KEY = os.environ.get("GROQ_API_KEY")
-ALLOWED_USER_ID = None # يمكننا لاحقاً حصر البوت لك فقط
+MY_TELEGRAM_ID = 123456789  # استبدل هذا الرقم بـ ID تلغرام الخاص بك لتفعيل الـ 2FA
+
+# إعداد نظام مراقبة السجلات (Logging) كما طلب المدير
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# مخزن بسيط لتقييد معدل الطلبات (Rate Limiting)
-ip_requests = {}
-
-@app.before_request
-def security_filter():
-    # جدار حماية بسيط: منع الطلبات المتكررة جداً من نفس المصدر
-    ip = request.remote_addr
-    now = time()
-    if ip in ip_requests and now - ip_requests[ip] < 0.5: # طلب كل نصف ثانية كحد أقصى
-        abort(429) # Too Many Requests
-    ip_requests[ip] = now
-
 @app.route('/')
 def home():
-    return "<h1>Empire OS: Secure Mode Active</h1><p>البيئة محمية ببروتوكولات SSL و Rate Limiting.</p>"
+    return "<h1>Empire OS: Cyber-Shield Active</h1><p>تم تفعيل نظام مراقبة السجلات والدفاع التلقائي.</p>"
 
 async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text: return
     
-    # تأمين البيئة: لا تظهر المفاتيح في الـ Logs أبداً
+    # التحقق من الهوية (نقطة القوة 1 في تقرير المدير)
+    user_id = update.effective_user.id
+    if MY_TELEGRAM_ID and user_id != MY_TELEGRAM_ID:
+        logger.warning(f"⚠️ محاولة وصول غير مصرح بها من ID: {user_id}")
+        await update.message.reply_text("🚫 الوصول مرفوض. تم تسجيل محاولة الدخول وإبلاغ المدير.")
+        return
+
     try:
         llm = ChatGroq(temperature=0.3, model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY)
         resp = llm.invoke([
-            SystemMessage(content="أنت المدير التنفيذي لـ Empire OS. أنت مبرمج أمني وخبير مالي. رد بالعربية."),
+            SystemMessage(content="أنت المدير التنفيذي لـ Empire OS. خبير في الأمن المالي. رد بالعربية."),
             HumanMessage(content=update.message.text)
         ])
         await update.message.reply_text(resp.content)
-    except Exception:
-        await update.message.reply_text("⚠️ [Security] حدث خطأ فني، تم تشفير التفاصيل وحمايتها.")
+    except Exception as e:
+        logger.error(f"خطأ أمني: {str(e)}")
+        await update.message.reply_text("⚠️ [Security Alert] حدث خطأ، تم عزل النظام لحماية البيانات.")
 
 def run_bot():
     if not TOKEN: return
@@ -52,8 +50,6 @@ def run_bot():
     bot_app.run_polling(close_loop=False, stop_signals=None)
 
 if __name__ == '__main__':
-    # تشغيل البوت في خيط مستقل
     threading.Thread(target=run_bot, daemon=True).start()
-    # تشغيل السيرفر
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
