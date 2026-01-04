@@ -5,44 +5,47 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage
-from googlesearch import search  # يحتاج تثبيت: pip install googlesearch-python
+from googlesearch import search 
 
-# --- الإعدادات الفنية ---
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# --- 1. الإعدادات الأساسية ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 TOKEN = "7987600648:AAFsGFuAqOandpZAwh1g1wia5zv6OutySdQ"
 GK_KEY = os.environ.get("GROQ_API_KEY")
 MY_ID = 6758877303
-INTEL_FILE = "empire_intel_v6.txt"
 PORTFOLIO_FILE = "virtual_portfolio.txt"
 
 app = Flask(__name__)
 
-# قائمة الـ 100 شركة (توسيع القائمة)
-TOP_100 = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "META", "AVGO", "ASML", "COST", "NFLX", "ADBE", "AMD", "INTC", "PYPL", "V", "MA", "WMT", "JPM", "DIS"]
+# قائمة الـ 20 شركة الأهم للتركيز (يمكنك زيادتها لـ 100)
+TOP_WATCHLIST = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "META", "AVGO", "ASML", "COST", "NFLX", "ADBE", "AMD", "INTC", "PYPL", "V", "MA", "WMT", "JPM", "DIS"]
 
 @app.route('/')
 def home():
-    return "Empire OS v6.0: Executive System Active. Monitoring Markets & News."
+    return "Empire OS v6.2: Status ONLINE. Monitoring Market Opportunities..."
 
-# --- 1. وظيفة البحث عن الأخبار (الذكاء الاستقصائي) ---
+# --- 2. محرك البحث الذكي عن أخبار الأسهم ---
 def get_stock_news(ticker):
     try:
-        query = f"why is {ticker} stock moving today 2026 news"
-        results = list(search(query, num_results=3))
-        return "\n".join(results)
-    except:
-        return "No recent news found via search."
+        # البحث عن سبب الحركة في جوجل لعام 2026
+        query = f"why is {ticker} stock price moving today 2026 analysis"
+        results = []
+        for j in search(query, num_results=2):
+            results.append(j)
+        return " | ".join(results) if results else "No recent specific news found."
+    except Exception as e:
+        logging.error(f"Search error for {ticker}: {e}")
+        return "Search engine temporarily busy."
 
-# --- 2. محرك التحليل والتعلم (The Executive Cycle) ---
+# --- 3. محرك التحليل التنفيذي (Executive Cycle) ---
 async def executive_cycle(application):
     llm = ChatGroq(temperature=0.1, model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY)
     
     while True:
         try:
             now = datetime.datetime.now()
-            report_data = []
+            report_entries = []
             
-            for ticker in TOP_100:
+            for ticker in TOP_WATCHLIST:
                 stock = yf.Ticker(ticker)
                 hist = stock.history(period="2d")
                 if len(hist) < 2: continue
@@ -51,71 +54,87 @@ async def executive_cycle(application):
                 prev_price = hist['Close'].iloc[-2]
                 change = ((current_price - prev_price) / prev_price) * 100
                 
-                # رادار الفرص (حركة > 2.0%)
+                # رادار التنبيه (حركة أكثر من 2%)
                 if abs(change) >= 2.0:
                     news = get_stock_news(ticker)
+                    
                     analysis_prompt = f"""
-                    حلل سهم {ticker} بالسعر {current_price:.2f} وتغير {change:.2f}%.
-                    الأخبار المتاحة: {news}
-                    المطلوب: 
-                    1. سبب الحركة.
-                    2. قرار (شراء/بيع/انتظار).
-                    3. درجة ثقة من 100.
-                    4. نص الاستشارة الاحترافي للبيع.
-                    اجعل الرد بصيغة JSON مختصرة.
+                    أنت محلل مالي في 2026. سهم {ticker} سعره الآن {current_price:.2f} وتغير بـ {change:+.2f}%.
+                    الأخبار المكتشفة: {news}
+                    حلل باختصار:
+                    1. ما سبب الحركة؟
+                    2. هل هي فرصة (شراء/بيع)؟
+                    3. درجة الثقة (0-100).
+                    اجعل الرد في سطرين فقط للاحترافية.
                     """
                     ai_res = llm.invoke([HumanMessage(content=analysis_prompt)])
                     
-                    entry = f"| {ticker} | {current_price:.2f} | {change:+.2f}% | {ai_res.content[:150]}... |"
-                    report_data.append(entry)
+                    # تنسيق الجدول
+                    entry = f"| {ticker} | {current_price:.2f} | {change:+.2f}% | {ai_res.content[:150]} |"
+                    report_entries.append(entry)
                     
-                    # تسجيل في المحفظة الوهمية إذا كانت التوصية شراء
+                    # حفظ الصفقات "الوهمية" للتعلم وتتبع الأرباح
                     if "شراء" in ai_res.content or "BUY" in ai_res.content.upper():
-                        with open(PORTFOLIO_FILE, "a") as pf:
-                            pf.write(f"{now.date()}, {ticker}, {current_price:.2f}\n")
+                        with open(PORTFOLIO_FILE, "a", encoding="utf-8") as f:
+                            f.write(f"{now.strftime('%Y-%m-%d')}, {ticker}, {current_price:.2f}\n")
 
-            if report_data:
-                header = "📊 **تقرير النخبة لفرص السوق**\n\n| الشركة | السعر | التغير | التحليل الموجز |\n| :--- | :--- | :--- | :--- |\n"
-                full_msg = header + "\n".join(report_data)
-                await application.bot.send_message(chat_id=MY_ID, text=full_msg, parse_mode="Markdown")
+            if report_entries:
+                table_header = "📊 **تقرير النخبة: تحركات السوق الكبرى**\n\n| سهم | سعر | تغير | تحليل Empire OS |\n|---|---|---|---|\n"
+                full_report = table_header + "\n".join(report_entries)
+                await application.bot.send_message(chat_id=MY_ID, text=full_report, parse_mode="Markdown")
 
         except Exception as e:
-            logging.error(f"Executive Cycle Error: {e}")
+            logging.error(f"Error in cycle: {e}")
         
-        await asyncio.sleep(7200) # فحص كل ساعتين لتجنب الحظر
+        # الانتظار لمدة ساعتين قبل الفحص التالي (لتجنب الحظر)
+        await asyncio.sleep(7200)
 
-# --- 3. معالج الرسائل الذكي ---
+# --- 4. معالج الرسائل المباشرة مع هاني ---
 async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != MY_ID: return
+    if not update.message or update.effective_user.id != MY_ID: return
     
     query = update.message.text
     llm = ChatGroq(temperature=0.2, model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY)
     
+    # الرد على استفسارات المحفظة
     if "أرباح" in query or "portfolio" in query.lower():
         if os.path.exists(PORTFOLIO_FILE):
-            with open(PORTFOLIO_FILE, "r") as f:
+            with open(PORTFOLIO_FILE, "r", encoding="utf-8") as f:
                 data = f.read()
-            await update.message.reply_text(f"📈 سجل المشتريات الوهمية لتتبع الأرباح:\n{data}")
-        else:
-            await update.message.reply_text("لا يوجد صفقات مسجلة بعد.")
-        return
+            return await update.message.reply_text(f"📈 سجل صفقاتنا حتى الآن:\n\n{data}")
+        return await update.message.reply_text("المحفظة فارغة حالياً، بانتظار فرص السوق.")
 
-    # الرد العادي مع سياق الذاكرة
-    response = llm.invoke([SystemMessage(content="أنت Empire OS المساعد التنفيذي لهاني."), HumanMessage(content=query)])
+    # الرد العام
+    response = llm.invoke([
+        SystemMessage(content="أنت Empire OS، النظام الذكي المملوك لهاني. وظيفتك إدارة الاستثمارات وتقديم نصائح دقيقة."),
+        HumanMessage(content=query)
+    ])
     await update.message.reply_text(response.content)
 
+# --- 5. التشغيل والتحكم في التصادم ---
 async def main():
+    # بناء التطبيق
     application = ApplicationBuilder().token(TOKEN).build()
+    
+    # بروتوكول الصدمة: تنظيف أي اتصالات قديمة أو Webhooks عالقة
+    await application.bot.delete_webhook(drop_pending_updates=True)
+    logging.info("Telegram connection cleaned and ready.")
+
+    # إضافة المعالجات
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_msg))
     
+    # بدء دورة التعلم والتحليل في الخلفية
     asyncio.create_task(executive_cycle(application))
     
+    # تشغيل البوت
     await application.initialize()
     await application.start()
     await application.updater.start_polling(drop_pending_updates=True)
     
-    while True: await asyncio.sleep(1)
+    # إبقاء النظام حياً
+    while True:
+        await asyncio.sleep(1)
 
 if __name__ == '__main__':
-    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000), daemon=True).start()
-    asyncio.run(main())
+    # تشغيل Flask لتجنب إغلاق Render للخدمة
+    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=1000
