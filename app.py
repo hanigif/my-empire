@@ -8,78 +8,63 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from langchain_groq import ChatGroq
 
-# --- الإعدادات الأساسية (The Foundation) ---
+# إعدادات التوقيت واللوغز
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# توقيت السويد الرسمي
 SWEDEN_TZ = pytz.timezone('Europe/Stockholm')
 
 app = Flask(__name__)
 
-# إعداد الذكاء الاصطناعي (The Sovereign Brain)
+# المحرك الذهني للمنتج (Groq AI)
 llm = ChatGroq(
-    temperature=0.3,
+    temperature=0.2, # درجة حرارة منخفضة لقرار أكثر دقة وسيادية
     model_name="llama-3.3-70b-versatile",
     groq_api_key=os.getenv("GROQ_API_KEY")
 )
 
-# --- منطق المدير السيادي (Sovereign Logic) ---
 def get_sweden_time():
     return datetime.now(SWEDEN_TZ).strftime('%Y-%m-%d %H:%M:%S')
 
-async def sovereign_decision_engine(user_input):
-    """المحرك الذي يحول المدخلات إلى قرارات إدارية"""
+async def sovereign_logic_engine(user_input):
+    """هذا هو قلب المنتج الذي سنطوره تدريجياً"""
     system_prompt = f"""
-    أنت 'المدير السيادي'. هدفك الوحيد: الوصول لأفضل 100 شركة وتحقيق أعلى عائد.
+    أنت 'المدير السيادي' (Sovereign Manager). 
+    هدفنا الحالي: بناء وتطوير منتج "المدير السيادي" ككيان ذكي متكامل.
     الوقت الحالي في السويد: {get_sweden_time()}
-    القواعد: كن حاسماً، تحليلياً، وركز فقط على نمو المنتج والشركة.
+    القواعد: كن استراتيجياً، فكر كقائد منتج، ولا تشتت نفسك بأهداف جانبية.
     """
     try:
         response = llm.invoke([("system", system_prompt), ("human", user_input)])
         return response.content
     except Exception as e:
-        return f"خطأ في محرك القرار: {str(e)}"
+        return f"عذراً مدير، حدث خطأ في محرك القرار: {str(e)}"
 
-# --- معالجات تلغرام (Telegram Handlers) ---
+# معالجات التلغرام
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    welcome_msg = "تم تفعيل النواة السيادية. المدير جاهز للعمل.\nالهدف: أفضل 100 شركة."
-    await update.message.reply_text(welcome_msg)
+    await update.message.reply_text("النواة السيادية نشطة. منتج 'المدير السيادي' جاهز للتطوير.")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_text = update.message.text
-    # إشعار المدير بالعمل
-    decision = await sovereign_decision_engine(user_text)
+    decision = await sovereign_logic_engine(update.message.text)
     await update.message.reply_text(decision)
 
-# --- تشغيل البوت (The Core Engine) ---
+# تشغيل المحرك
 async def run_bot():
     token = os.getenv("TELEGRAM_TOKEN")
-    if not token:
-        logger.error("TELEGRAM_TOKEN missing!")
-        return
-
-    # بناء التطبيق مع نظام منع التضارب تلقائياً
     application = Application.builder().token(token).build()
-    
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
+    
     await application.initialize()
     await application.start()
-    await application.updater.start_polling(drop_pending_updates=True)
-    logger.info("Sovereign Core is Pulse-Active...")
+    await application.updater.start_polling(drop_pending_updates=True) # أهم سطر لمنع الـ Conflict
+    logger.info("Sovereign Manager is Live...")
 
-# --- مسارات Flask للـ Render ---
 @app.route('/')
 def home():
-    return f"Sovereign Manager Active. Time in Sweden: {get_sweden_time()}"
+    return f"Sovereign Core Active. Sweden Time: {get_sweden_time()}"
 
 if __name__ == "__main__":
-    # تشغيل البوت في الخلفية
     loop = asyncio.get_event_loop()
     loop.create_task(run_bot())
-    
-    # تشغيل Flask
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
