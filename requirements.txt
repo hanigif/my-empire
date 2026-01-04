@@ -5,3 +5,4 @@ yfinance
 python-telegram-bot
 langchain-groq
 langchain-core
+googlesearch-python
