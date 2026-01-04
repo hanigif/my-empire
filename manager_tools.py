@@ -13,20 +13,16 @@ GOOGLE_KEY = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY"
 SWEDEN_TZ = pytz.timezone('Europe/Stockholm')
 KNOWLEDGE_BASE_DIR = "knowledge_base"
 
-# تأمين وجود قاعدة المعرفة
 if not os.path.exists(KNOWLEDGE_BASE_DIR):
     os.makedirs(KNOWLEDGE_BASE_DIR)
 
-# --- إعداد العقول لعام 2026 (مع إصلاح الموديلات) ---
-# عقل التحليل التقني (DeepSeek/Llama)
+# --- إعداد العقول لعام 2026 ---
 llm_deepseek = ChatGroq(
     temperature=0.1, 
     model_name="llama-3.3-70b-versatile", 
     groq_api_key=GK_KEY
 )
 
-# عقل الاستراتيجية المالية (Gemini - النسخة المستقرة)
-# تم تحديث الموديل ليتناسب مع تحديثات v1beta لتجنب خطأ 404
 llm_gemini = ChatGoogleGenerativeAI(
     model="gemini-1.5-flash", 
     google_api_key=GOOGLE_KEY,
@@ -56,45 +52,44 @@ def archive_learning(role, task, content):
 def get_board_decision(task):
     """تنسيق قرار مجلس الإدارة الرقمي"""
     try:
-        # 1. البحث باستخدام أدوات البحث السيادية
+        # 1. البحث
         search_results = search_tool.run(task)
         
-        # 2. تحليل CTO (عبر Llama/Groq)
+        # 2. تحليل CTO
         cto_prompt = f"حلل تقنياً لعام 2026 الأدوات والفرص التالية: {search_results}"
         op1 = llm_deepseek.invoke([
-            SystemMessage(content="أنت CTO خبير ومستشار سيادي تقني."), 
+            SystemMessage(content="أنت CTO خبير."), 
             HumanMessage(content=cto_prompt)
         ]).content
         
-        # 3. تحليل COO (عبر Gemini المستقر)
-        coo_prompt = f"صغ نموذج ربحية وخطة عمل بناءً على المعطيات: {search_results}"
+        # 3. تحليل COO
+        coo_prompt = f"صغ نموذج ربحية وخطة عمل بناءً على: {search_results}"
         op2 = llm_gemini.invoke([
-            SystemMessage(content="أنت COO استراتيجي مالي ومسؤول عن تعظيم الربح."), 
+            SystemMessage(content="أنت COO استراتيجي."), 
             HumanMessage(content=coo_prompt)
         ]).content
         
-        # 4. تلخيص المدير التنفيذي السيادي
-        summary_prompt = (
-            f"بناءً على التقارير التالية:\n"
-            f"الرؤية التقنية: {op1[:700]}\n"
-            f"الرؤية المالية: {op2[:700]}\n"
-            f"صغ القرار النهائي للقائد بلهجة قوية وحاسمة."
-        )
+        # 4. تلخيص المدير السيادي
+        summary_prompt = f"الرؤية التقنية: {op1[:500]}. الرؤية المالية: {op2[:500]}. صغ القرار النهائي بلهجة قوية."
         executive_summary = llm_gemini.invoke([
-            SystemMessage(content="أنت المدير التنفيذي للمدير السيادي."), 
+            SystemMessage(content="أنت المدير التنفيذي السيادي."), 
             HumanMessage(content=summary_prompt)
         ]).content
         
-        # 5. الأرشفة السيادية
+        # 5. الأرشفة
         archive_learning("CTO", task, op1)
         archive_learning("COO", task, op2)
         archive_learning("MANAGER", task, executive_summary)
         
         current_time = datetime.datetime.now(SWEDEN_TZ).strftime("%H:%M")
         
-        # التنسيق النهائي للرد
-        return (f"🏛️ **قرار مجلس الإدارة السيادي ({current_time})**\n\n"
-                f"🎯 **الخلاصة التنفيذية:**\n{executive_summary}\n\n"
-                f"🛠️ **التحليل التقني (CTO):**\n{op1[:300]}...\n\n"
-                f"💰 **الجدوى المالية (COO):**\n{op2[:300]}...\n\n"
-                f"📁 **تمت الأرشف
+        # التأكد من إغلاق النص بشكل صحيح
+        res = (f"🏛️ **قرار مجلس الإدارة السيادي ({current_time})**\n\n"
+               f"🎯 **الخلاصة:** {executive_summary}\n\n"
+               f"🛠️ **تقنياً:** {op1[:200]}...\n\n"
+               f"💰 **مالياً:** {op2[:200]}...\n\n"
+               f"📁 تم التحديث بنجاح في قاعدة المعرفة.")
+        return res
+
+    except Exception as e:
+        return f"❌ خطأ في النظام: {str(e)}"
