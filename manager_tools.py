@@ -68,16 +68,26 @@ def sovereign_search(query):
         return f"خطأ في البحث: {str(e)}"
 
 def get_board_decision(task):
-    """تقرير مجلس الإدارة الكامل مع الأرشفة"""
+    """تقرير مجلس الإدارة مع التلخيص الذكي والأرشفة"""
+    # 1. البحث والتقصي
     search_results = sovereign_search(task)
-    op1 = consult_deepseek(f"حلل هذه البيانات تقنياً لشركتنا: {search_results}")
-    op2 = consult_gemini(f"حلل هذه البيانات استراتيجياً لشركتنا: {search_results}")
     
-    # أرشفة تلقائية للتعلم
+    # 2. استشارة العقول
+    op1 = consult_deepseek(f"بصفتك CTO، استخرج أهم 3 أدوات تقنية من هذه النتائج وكيفية تطبيقها: {search_results}")
+    op2 = consult_gemini(f"بصفتك COO، استخرج نموذج الربح الأنسب لهذه التقنيات: {search_results}")
+    
+    # 3. وظيفة التلخيص السيادي (الجديدة)
+    # المدير هنا يجمع الآراء ويصيغ خلاصة لك
+    summary_prompt = f"لدينا تقرير تقني من CTO: {op1[:500]} وتقرير إداري من COO: {op2[:500]}. ادمجهما في ملخص تنفيذي واحد من 4 أسطر فقط يوضح الخطوة القادمة للشركة."
+    executive_summary = consult_gemini(summary_prompt) # Gemini يتولى الصياغة النهائية
+    
+    # 4. الأرشفة الذكية
     archive_learning("CTO", task, op1)
     archive_learning("COO", task, op2)
+    archive_learning("MANAGER", f"Summary_{task}", executive_summary)
     
-    return (f"📊 تقرير مجلس الإدارة (السيادة):\n\n"
-            f"👤 CTO (DeepSeek):\n{op1[:500]}...\n\n"
-            f"👤 COO (Gemini):\n{op2[:500]}...\n\n"
-            f"📥 تم حفظ هذه الجلسة في قاعدة المعرفة الذاتية.")
+    return (f"🏛️ **ملخص الساعة السيادي**:\n\n"
+            f"🎯 **الخلاصة:** {executive_summary}\n\n"
+            f"🛠️ **تقنياً (CTO):** {op1[:200]}...\n"
+            f"💰 **مالياً (COO):** {op2[:200]}...\n\n"
+            f"📁 تم حفظ التفاصيل كاملة في قاعدة المعرفة.")
