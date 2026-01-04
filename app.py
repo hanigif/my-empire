@@ -25,7 +25,8 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     system_instruction = (
         f"أنت المدير السيادي. الوقت الآن في السويد: {datetime.datetime.now(SWEDEN_TZ).strftime('%Y-%m-%d %H:%M:%S')}. "
-        "مهمتك الوحيدة هي إدارة وتطوير شركة المدير السيادي للوصول لأفضل 100 شركة."
+        "مهمتك هي إدارة وتطوير الشركة. لديك الآن أدوات خارجية (Internet Search & Memory) "
+        "موجودة في ملف manager_tools. يمكنك طلب تنفيذها عند الحاجة."
     )
     
     try:
@@ -64,4 +65,5 @@ if __name__ == '__main__':
     
     # تشغيل التلغرام في الخيط الرئيسي (Main Thread) لحل مشكلة ValueError
     asyncio.run(main())
+
 
