@@ -5,9 +5,10 @@ yfinance
 python-telegram-bot
 langchain-groq
 langchain-core
+langchain-google-genai
+langchain-community
 googlesearch-python
 hypercorn
 pytz
 duckduckgo-search
 APScheduler==3.10.4
-langchain-google-genai
