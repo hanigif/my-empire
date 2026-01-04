@@ -10,5 +10,6 @@ langchain-community
 googlesearch-python
 hypercorn
 pytz
-duckduckgo-search
+duckduckgo-search==6.3.0
 APScheduler==3.10.4
+ddgs
