@@ -2,10 +2,10 @@ flask
 pandas
 plotly
 yfinance
-python-telegram-bot
+python-telegram-bot>=20.0
 langchain-groq
 langchain-core
-langchain-google-genai
+langchain-google-genai>=2.0.0
 langchain-community
 googlesearch-python
 hypercorn
@@ -13,3 +13,4 @@ pytz
 duckduckgo-search==6.3.0
 APScheduler==3.10.4
 ddgs
+google-generativeai>=0.8.0
