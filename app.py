@@ -1,19 +1,24 @@
 import os
 import logging
+import threading
+import asyncio
 from datetime import datetime
 import pytz
-from flask import Flask
-import threading
+from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from langchain_groq import ChatGroq
 
-# 1. الإعدادات واللوغز
-logging.basicConfig(level=logging.INFO)
+# إعداد اللوغز
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# توقيت السويد
 SWEDEN_TZ = pytz.timezone('Europe/Stockholm')
+
 app = Flask(__name__)
 
-# 2. محرك الذكاء الاصطناعي (Groq)
+# إعداد محرك الذكاء الاصطناعي
 llm = ChatGroq(
     temperature=0.3,
     model_name="llama-3.3-70b-versatile",
@@ -23,36 +28,55 @@ llm = ChatGroq(
 def get_sweden_time():
     return datetime.now(SWEDEN_TZ).strftime('%Y-%m-%d %H:%M:%S')
 
-# 3. منطق المدير السيادي
+# --- منطق الاستجابة ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
-    system_prompt = f"أنت 'المدير السيادي'. هدفك تطوير منتجك. توقيت السويد: {get_sweden_time()}"
-    
+    system_prompt = f"""
+    أنت 'المدير السيادي'. هدفه بناء وتطوير منتجه الخاص للوصول للقمة.
+    توقيت السويد الحالي: {get_sweden_time()}
+    أجب بوضوح واحترافية كمدير استراتيجي.
+    """
     try:
         response = llm.invoke([("system", system_prompt), ("human", user_text)])
         await update.message.reply_text(response.content)
     except Exception as e:
-        await update.message.reply_text(f"خطأ: {str(e)}")
+        logger.error(f"Error in LLM: {e}")
+        await update.message.reply_text("عذراً، واجهت مشكلة في معالجة الطلب.")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("النواة السيادية تعمل. أنا جاهز يا مدير.")
+    await update.message.reply_text(f"مرحباً بك يا مدير. النواة السيادية تعمل بنجاح.\nالتوقيت: {get_sweden_time()}")
 
-# 4. وظيفة تشغيل البوت
-def run_bot():
+# --- تشغيل البوت ---
+def run_telegram_bot():
     token = os.getenv("TELEGRAM_TOKEN")
+    if not token:
+        logger.error("No TELEGRAM_TOKEN found!")
+        return
+
+    # إنشاء تطبيق التلغرام
     application = Application.builder().token(token).build()
+
+    # إضافة المعالجات
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    logger.info("Starting bot polling...")
+    # تشغيل البولينج
     application.run_polling(drop_pending_updates=True)
 
-# 5. مسار Flask لـ Render
+# --- مسارات Flask ---
 @app.route('/')
-def home():
-    return f"Sovereign Manager Active. Time: {get_sweden_time()}"
+def index():
+    return f"Sovereign Manager is Online. Sweden Time: {get_sweden_time()}"
+
+@app.route('/health')
+def health():
+    return "OK", 200
 
 if __name__ == "__main__":
-    # تشغيل البوت في خيط منفصل ببساطة كما كنا نفعل
-    threading.Thread(target=run_bot, daemon=True).start()
-    # تشغيل Flask
+    # تشغيل التلغرام في خيط منفصل (Thread) لضمان عدم توقف Flask
+    threading.Thread(target=run_telegram_bot, daemon=True).start()
+    
+    # تشغيل Flask على المنفذ المطلوب
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
