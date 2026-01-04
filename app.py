@@ -4,11 +4,13 @@ from flask import Flask
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 from apscheduler.schedulers.background import BackgroundScheduler
+from langchain_google_genai import ChatGoogleGenerativeAI # لضمان عمل المحرك الجديد
 
 # --- الإعدادات السيادية ---
 logging.basicConfig(level=logging.INFO)
 TOKEN = os.environ.get("TELEGRAM_TOKEN") 
 GK_KEY = os.environ.get("GROQ_API_KEY")
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
 MY_ID = 6758877303  # هويتك السيادية
 SWEDEN_TZ = pytz.timezone('Europe/Stockholm')
 
@@ -24,13 +26,15 @@ def auto_learning_cycle():
     task = "تحليل أحدث فرص الاستثمار والتقنيات السيادية لعام 2026 ونماذج الربح المستقلة"
     
     # استدعاء المدير السيادي للبحث والأرشفة والتحليل
-    # النتائج ستُحفظ تلقائياً في الـ Knowledge Base عبر manager_tools
-    manager_tools.get_board_decision(task)
-    logging.info(f"[✓] اكتملت دورة التعلم وتمت الأرشفة بنجاح.")
+    try:
+        manager_tools.get_board_decision(task)
+        logging.info(f"[✓] اكتملت دورة التعلم وتمت الأرشفة بنجاح.")
+    except Exception as e:
+        logging.error(f"[!] خطأ في دورة التعلم: {e}")
 
 # --- إعداد المجدول السيادي ---
-scheduler = BackgroundScheduler(daemon=True)
-# إضافة الوظيفة لتعمل كل ساعة (60 دقيقة)
+# تم ضبط المجدول ليعمل مع توقيت السويد لضمان الدقة
+scheduler = BackgroundScheduler(daemon=True, timezone=SWEDEN_TZ)
 scheduler.add_job(func=auto_learning_cycle, trigger="interval", hours=1)
 scheduler.start()
 
@@ -40,13 +44,17 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     # إشعار البدء
-    await update.message.reply_text("⏳ القائد يتحدث.. جاري استشارة مجلس الإدارة وأرشفة البيانات...")
+    status_msg = await update.message.reply_text("⏳ القائد يتحدث.. جاري استشارة مجلس الإدارة وأرشفة البيانات...")
     
-    # استخدام المحلل الاستراتيجي من manager_tools مباشرة لضمان الأرشفة والبحث والتحليل
-    # هذا يضمن أن كل رسالة ترسلها تتحول إلى "معرفة" محفوظة
-    response_text = manager_tools.get_board_decision(update.message.text)
-    
-    await update.message.reply_text(response_text)
+    try:
+        # استخدام المحلل الاستراتيجي من manager_tools مباشرة لضمان الأرشفة والبحث والتحليل
+        # تم تمرير النص للمدير السيادي الذي يستخدم الآن الموديل المستقر (gemini-1.5-flash)
+        response_text = manager_tools.get_board_decision(update.message.text)
+        await update.message.reply_text(response_text)
+    except Exception as e:
+        error_msg = f"❌ خطأ سيادي: {str(e)}"
+        logging.error(error_msg)
+        await update.message.reply_text("عذراً سيدي، واجه المحرك التقني صعوبة لحظية. تم تسجيل الخطأ وجاري المعالجة.")
 
 # --- المحرك الأساسي للبوت ---
 async def main():
@@ -71,13 +79,15 @@ async def main():
 # --- واجهة الويب (لضمان عمل UptimeRobot و Render) ---
 @app.route('/')
 def home(): 
-    return f"🏛️ Sovereign Empire OS - Active. <br>Sweden Time: {datetime.datetime.now(SWEDEN_TZ).strftime('%Y-%m-%d %H:%M:%S')}"
+    now_sweden = datetime.datetime.now(SWEDEN_TZ).strftime('%Y-%m-%d %H:%M:%S')
+    return f"🏛️ Sovereign Empire OS - Active. <br>Sweden Time: {now_sweden}"
 
 # --- نقطة الانطلاق ---
 if __name__ == '__main__':
     # تشغيل Flask في Thread منفصل لخدمة الـ Webhook و UptimeRobot
+    port = int(os.environ.get("PORT", 10000))
     flask_thread = threading.Thread(
-        target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000))), 
+        target=lambda: app.run(host='0.0.0.0', port=port), 
         daemon=True
     )
     flask_thread.start()
