@@ -16,7 +16,7 @@ PORTFOLIO_FILE = "virtual_portfolio.txt"
 
 app = Flask(__name__)
 
-# قائمة الـ 20 شركة الأهم للتركيز (يمكنك زيادتها لـ 100)
+# قائمة الـ 20 شركة الأهم للتركيز (أساس الـ 100 شركة)
 TOP_WATCHLIST = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "META", "AVGO", "ASML", "COST", "NFLX", "ADBE", "AMD", "INTC", "PYPL", "V", "MA", "WMT", "JPM", "DIS"]
 
 @app.route('/')
@@ -73,7 +73,7 @@ async def executive_cycle(application):
                     entry = f"| {ticker} | {current_price:.2f} | {change:+.2f}% | {ai_res.content[:150]} |"
                     report_entries.append(entry)
                     
-                    # حفظ الصفقات "الوهمية" للتعلم وتتبع الأرباح
+                    # حفظ الصفقات "الوهمية" لتتبع الأرباح
                     if "شراء" in ai_res.content or "BUY" in ai_res.content.upper():
                         with open(PORTFOLIO_FILE, "a", encoding="utf-8") as f:
                             f.write(f"{now.strftime('%Y-%m-%d')}, {ticker}, {current_price:.2f}\n")
@@ -86,55 +86,53 @@ async def executive_cycle(application):
         except Exception as e:
             logging.error(f"Error in cycle: {e}")
         
-        # الانتظار لمدة ساعتين قبل الفحص التالي (لتجنب الحظر)
+        # الانتظار لمدة ساعتين قبل الفحص التالي
         await asyncio.sleep(7200)
 
-# --- 4. معالج الرسائل المباشرة مع هاني ---
+# --- 4. معالج الرسائل المباشرة ---
 async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or update.effective_user.id != MY_ID: return
     
     query = update.message.text
     llm = ChatGroq(temperature=0.2, model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY)
     
-    # الرد على استفسارات المحفظة
     if "أرباح" in query or "portfolio" in query.lower():
         if os.path.exists(PORTFOLIO_FILE):
             with open(PORTFOLIO_FILE, "r", encoding="utf-8") as f:
                 data = f.read()
             return await update.message.reply_text(f"📈 سجل صفقاتنا حتى الآن:\n\n{data}")
-        return await update.message.reply_text("المحفظة فارغة حالياً، بانتظار فرص السوق.")
+        return await update.message.reply_text("المحفظة فارغة حالياً.")
 
-    # الرد العام
     response = llm.invoke([
         SystemMessage(content="أنت Empire OS، النظام الذكي المملوك لهاني. وظيفتك إدارة الاستثمارات وتقديم نصائح دقيقة."),
         HumanMessage(content=query)
     ])
     await update.message.reply_text(response.content)
 
-# --- 5. التشغيل والتحكم في التصادم ---
+# --- 5. التشغيل النهائي ---
 async def main():
-    # بناء التطبيق
     application = ApplicationBuilder().token(TOKEN).build()
     
-    # بروتوكول الصدمة: تنظيف أي اتصالات قديمة أو Webhooks عالقة
+    # تنظيف الاتصالات القديمة
     await application.bot.delete_webhook(drop_pending_updates=True)
     logging.info("Telegram connection cleaned and ready.")
 
-    # إضافة المعالجات
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_msg))
     
-    # بدء دورة التعلم والتحليل في الخلفية
     asyncio.create_task(executive_cycle(application))
     
-    # تشغيل البوت
     await application.initialize()
     await application.start()
     await application.updater.start_polling(drop_pending_updates=True)
     
-    # إبقاء النظام حياً
     while True:
         await asyncio.sleep(1)
 
 if __name__ == '__main__':
-    # تشغيل Flask لتجنب إغلاق Render للخدمة
-    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=1000
+    # تشغيل Flask بشكل سليم مع إغلاق الأقواس
+    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000), daemon=True).start()
+    
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        pass
