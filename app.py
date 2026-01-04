@@ -1,3 +1,4 @@
+import manager_tools
 import os, threading, asyncio, logging, datetime, pytz
 from flask import Flask
 from telegram import Update
@@ -63,3 +64,4 @@ if __name__ == '__main__':
     
     # تشغيل التلغرام في الخيط الرئيسي (Main Thread) لحل مشكلة ValueError
     asyncio.run(main())
+
