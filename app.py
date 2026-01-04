@@ -1,70 +1,85 @@
-import os, threading, asyncio, logging, datetime, json, pytz
+import os
+import logging
+import asyncio
+from datetime import datetime
+import pytz
 from flask import Flask
 from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from langchain_groq import ChatGroq
-from langchain_core.messages import HumanMessage, SystemMessage
 
-# --- الإعدادات السيادية (أساس لا يُمس) ---
+# --- الإعدادات الأساسية (The Foundation) ---
 logging.basicConfig(level=logging.INFO)
-TOKEN = "7987600648:AAFsGFuAqOandpZAwh1g1wia5zv6OutySdQ"
-GK_KEY = os.environ.get("GROQ_API_KEY")
-MY_ID = 6758877303
+logger = logging.getLogger(__name__)
+
+# توقيت السويد الرسمي
 SWEDEN_TZ = pytz.timezone('Europe/Stockholm')
 
 app = Flask(__name__)
 
-# --- وظيفة معالجة الرسائل والربط مع المختبر ---
-async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or update.effective_user.id != MY_ID: return
-    
-    # 1. استدعاء تقرير المختبر (GitHub) فوراً
-    lab_info = "جاري فحص المختبر..."
+# إعداد الذكاء الاصطناعي (The Sovereign Brain)
+llm = ChatGroq(
+    temperature=0.3,
+    model_name="llama-3.3-70b-versatile",
+    groq_api_key=os.getenv("GROQ_API_KEY")
+)
+
+# --- منطق المدير السيادي (Sovereign Logic) ---
+def get_sweden_time():
+    return datetime.now(SWEDEN_TZ).strftime('%Y-%m-%d %H:%M:%S')
+
+async def sovereign_decision_engine(user_input):
+    """المحرك الذي يحول المدخلات إلى قرارات إدارية"""
+    system_prompt = f"""
+    أنت 'المدير السيادي'. هدفك الوحيد: الوصول لأفضل 100 شركة وتحقيق أعلى عائد.
+    الوقت الحالي في السويد: {get_sweden_time()}
+    القواعد: كن حاسماً، تحليلياً، وركز فقط على نمو المنتج والشركة.
+    """
     try:
-        from sovereign_lab import run_lab_test
-        report = run_lab_test()
-        lab_info = report['detail']
+        response = llm.invoke([("system", system_prompt), ("human", user_input)])
+        return response.content
     except Exception as e:
-        lab_info = f"تنبيه: تعذر جلب بيانات GitHub (السبب: {e})"
+        return f"خطأ في محرك القرار: {str(e)}"
 
-    # 2. إعداد المحرك (Llama 3.3)
-    llm = ChatGroq(temperature=0.1, model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY)
-    
-    # 3. دمج البيانات الحقيقية في نظام التوجيه
-    current_time = datetime.datetime.now(SWEDEN_TZ).strftime("%Y-%m-%d %H:%M:%S")
-    system_instruction = (
-        f"أنت المدير السيادي. الوقت الحالي في السويد: {current_time}.\n"
-        f"بيانات المزامنة مع GitHub: {lab_info}.\n"
-        "مهمتك: إدارة الشركة للوصول لأفضل 100 شركة. استخدم بيانات GitHub أعلاه للإجابة بدقة."
-    )
-    
-    # 4. توليد الرد
-    response = llm.invoke([
-        SystemMessage(content=system_instruction), 
-        HumanMessage(content=update.message.text)
-    ])
-    await update.message.reply_text(response.content)
+# --- معالجات تلغرام (Telegram Handlers) ---
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    welcome_msg = "تم تفعيل النواة السيادية. المدير جاهز للعمل.\nالهدف: أفضل 100 شركة."
+    await update.message.reply_text(welcome_msg)
 
-# --- محرك التشغيل المستمر ---
-async def main():
-    application = ApplicationBuilder().token(TOKEN).build()
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_text = update.message.text
+    # إشعار المدير بالعمل
+    decision = await sovereign_decision_engine(user_text)
+    await update.message.reply_text(decision)
+
+# --- تشغيل البوت (The Core Engine) ---
+async def run_bot():
+    token = os.getenv("TELEGRAM_TOKEN")
+    if not token:
+        logger.error("TELEGRAM_TOKEN missing!")
+        return
+
+    # بناء التطبيق مع نظام منع التضارب تلقائياً
+    application = Application.builder().token(token).build()
     
-    # تطهير الـ Webhook لضمان عدم التعارض
-    await application.bot.delete_webhook(drop_pending_updates=True)
-    
-    application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_msg))
-    
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
     await application.initialize()
     await application.start()
     await application.updater.start_polling(drop_pending_updates=True)
-    
-    logging.info("Sovereign Manager is Live and Monitoring...")
-    while True: await asyncio.sleep(1)
+    logger.info("Sovereign Core is Pulse-Active...")
 
+# --- مسارات Flask للـ Render ---
 @app.route('/')
-def home(): return "Sovereign Empire OS v7.2.2 - Lab Active"
+def home():
+    return f"Sovereign Manager Active. Time in Sweden: {get_sweden_time()}"
 
-if __name__ == '__main__':
-    # تشغيل Flask في خيط منفصل لضمان بقاء السيرفر حياً
-    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000), daemon=True).start()
-    asyncio.run(main())
+if __name__ == "__main__":
+    # تشغيل البوت في الخلفية
+    loop = asyncio.get_event_loop()
+    loop.create_task(run_bot())
+    
+    # تشغيل Flask
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
