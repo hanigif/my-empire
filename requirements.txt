@@ -9,3 +9,4 @@ googlesearch-python
 hypercorn
 pytz
 duckduckgo-search
+APScheduler==3.10.4
