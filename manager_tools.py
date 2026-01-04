@@ -10,6 +10,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 # --- الإعدادات السيادية ---
 GK_KEY = os.environ.get("GROQ_API_KEY")
 GOOGLE_KEY = os.environ.get("GOOGLE_API_KEY")
+# استخدام الوقت الرسمي للسويد كما طلبت في تعليماتك
 SWEDEN_TZ = pytz.timezone('Europe/Stockholm')
 KNOWLEDGE_BASE_DIR = "knowledge_base"
 
@@ -17,24 +18,25 @@ if not os.path.exists(KNOWLEDGE_BASE_DIR):
     os.makedirs(KNOWLEDGE_BASE_DIR)
 
 # --- إعداد العقول (تحديث الموديلات لعام 2026) ---
-# CTO: تم استبدال الموديل الموقوف بـ Llama 3.3 الأحدث والأقوى
+
+# CTO: استخدام Llama 3.3-70b وهو المحرك التقني الأقوى حالياً عبر Groq
 llm_deepseek = ChatGroq(
     temperature=0.1, 
     model_name="llama-3.3-70b-versatile", 
     groq_api_key=GK_KEY
 )
 
-# COO: Gemini 1.5 Flash للسرعة والذكاء الإداري
+# COO: تحديث Gemini لتجنب خطأ 404 عبر استخدام المعرف الأحدث والمستقر
 llm_gemini = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash", 
-    google_api_key=GOOGLE_KEY
+    model="gemini-1.5-flash-latest", # تم التحديث لضمان التوافق مع API v1
+    google_api_key=GOOGLE_KEY,
+    convert_system_message_to_human=True # لضمان أعلى توافق مع رسائل النظام
 )
 
 search_tool = DuckDuckGoSearchRun()
 
 def archive_learning(role, task, content):
-    """أرشفة كل خطوة في قاعدة المعرفة"""
-    date_str = datetime.datetime.now(SWEDEN_TZ).strftime("%Y-%m-%d")
+    """أرشفة كل خطوة في قاعدة المعرفة - الحفاظ على التقدم كأساس لا يمس"""
     file_path = os.path.join(KNOWLEDGE_BASE_DIR, f"{role.lower()}_brain.json")
     
     entry = {
@@ -55,32 +57,17 @@ def archive_learning(role, task, content):
         json.dump(data, f, ensure_ascii=False, indent=4)
 
 def get_board_decision(task):
-    """تنسيق قرار مجلس الإدارة الرقمي"""
+    """تنسيق قرار مجلس الإدارة الرقمي للمدير السيادي"""
     try:
-        # البحث
+        # 1. البحث عن أحدث البيانات
         search_results = search_tool.run(task)
         
-        # تحليل CTO
+        # 2. تحليل CTO (الرؤية التقنية)
         cto_prompt = f"حلل تقنياً لعام 2026 الأدوات والفرص التالية: {search_results}"
-        op1 = llm_deepseek.invoke([SystemMessage(content="أنت CTO خبير."), HumanMessage(content=cto_prompt)]).content
+        op1 = llm_deepseek.invoke([
+            SystemMessage(content="أنت CTO خبير ومستشار تقني سيادي."), 
+            HumanMessage(content=cto_prompt)
+        ]).content
         
-        # تحليل COO
-        coo_prompt = f"صغ نموذج ربحية وخطة عمل بناءً على: {search_results}"
-        op2 = llm_gemini.invoke([SystemMessage(content="أنت COO استراتيجي."), HumanMessage(content=coo_prompt)]).content
-        
-        # تلخيص المدير (السيادي)
-        summary_prompt = f"لدينا رؤية تقنية: {op1[:500]} ورؤية مالية: {op2[:500]}. اعطِ ملخصاً تنفيذياً في 4 أسطر."
-        executive_summary = llm_gemini.invoke([SystemMessage(content="أنت المدير التنفيذي."), HumanMessage(content=summary_prompt)]).content
-        
-        # الأرشفة
-        archive_learning("CTO", task, op1)
-        archive_learning("COO", task, op2)
-        archive_learning("MANAGER", task, executive_summary)
-        
-        return (f"🏛️ **ملخص الساعة السيادي**:\n\n"
-                f"🎯 **الخلاصة:** {executive_summary}\n\n"
-                f"🛠️ **تقنياً (CTO):** {op1[:300]}...\n\n"
-                f"💰 **مالياً (COO):** {op2[:300]}...\n\n"
-                f"📁 تم الأرشفة بنجاح.")
-    except Exception as e:
-        return f"❌ فشل في معالجة الطلب: {str(e)}"
+        # 3. تحليل COO (الرؤية الإدارية والربحية)
+        coo_prompt
