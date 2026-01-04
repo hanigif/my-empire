@@ -6,18 +6,20 @@ from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTyp
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage
 
-# --- الإعدادات الفنية ---
+# --- الإعدادات الأساسية (لا يمكن المساس بها) ---
 logging.basicConfig(level=logging.INFO)
 TOKEN = "7987600648:AAFsGFuAqOandpZAwh1g1wia5zv6OutySdQ"
 GK_KEY = os.environ.get("GROQ_API_KEY")
 MY_ID = 6758877303
+SWEDEN_TZ = pytz.timezone('Europe/Stockholm')
+
+# ملفات النظام
 MEMORY_FILE = "sovereign_memory.json"
 LOG_FILE = "activity_log.json"
-SWEDEN_TZ = pytz.timezone('Europe/Stockholm') # توقيت السويد الرسمي
+PRODUCT_LAB_FILE = "sovereign_lab.py" # مختبر تطوير المنتج
 
 app = Flask(__name__)
 
-# --- وظائف إدارة البيانات ---
 def load_data(file):
     if os.path.exists(file):
         with open(file, 'r') as f: return json.load(f)
@@ -26,42 +28,45 @@ def load_data(file):
 def save_data(file, data):
     with open(file, 'w') as f: json.dump(data, f)
 
-# --- محرك التطوير 24/7 (الواقعي) ---
+# --- محرك التطوير 24/7 (المراقب للمختبر) ---
 async def continuous_development_cycle(application):
     while True:
         try:
             now_sweden = datetime.datetime.now(SWEDEN_TZ).strftime("%Y-%m-%d %H:%M:%S")
             logs = load_data(LOG_FILE)
             
-            # هنا يجمع النظام "بيانات حقيقية" فقط
-            # مثال: مراقبة سهم تقني أو خبر عن AI كمنافس للمنتج
-            market_data = yf.Ticker("MSFT").info.get('regularMarketPrice', 'N/A') # مثال لمراقبة المنافسين
+            # فحص حالة المختبر
+            lab_status = "Empty"
+            if os.path.exists(PRODUCT_LAB_FILE) and os.path.getsize(PRODUCT_LAB_FILE) > 0:
+                lab_status = "Active - New Product Feature Drafted"
             
-            logs[now_sweden] = f"Market Check: Microsoft Price {market_data}. Analyzing impact on 'Sovereign Manager'."
+            # فحص السوق (كمثال للبيانات الخارجية)
+            msft_price = yf.Ticker("MSFT").info.get('regularMarketPrice', 'N/A')
+            
+            logs[now_sweden] = f"Market: MSFT @{msft_price} | Lab Status: {lab_status}"
             save_data(LOG_FILE, logs)
             
-            logging.info(f"[{now_sweden}] Activity Logged.")
+            logging.info(f"[{now_sweden}] Sovereign Lab Monitored.")
         except Exception as e:
             logging.error(f"Dev Cycle Error: {e}")
-        await asyncio.sleep(3600) # يعمل كل ساعة
+        await asyncio.sleep(3600)
 
-# --- معالج الرسائل (بشخصية عملية صارمة) ---
+# --- معالج الرسائل الذكي ---
 async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or update.effective_user.id != MY_ID: return
     
     user_text = update.message.text
-    llm = ChatGroq(temperature=0.1, model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY) # تم تقليل الـ temperature لزيادة الدقة ومنع الهذيان
+    llm = ChatGroq(temperature=0.1, model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY)
     
-    memory = load_data(MEMORY_FILE)
     logs = load_data(LOG_FILE)
-    last_activities = list(logs.items())[-5:] # آخر 5 أنشطة حقيقية
+    last_activities = list(logs.items())[-3:]
     
     system_instruction = (
-        f"أنت نظام تشغيل Empire OS. هدفك الوحيد: بناء منتج 'المدير السيادي'. "
-        f"التوقيت الحالي في السويد: {datetime.datetime.now(SWEDEN_TZ)}. "
-        f"قواعد صارمة: 1. كن واقعياً وعملياً جداً. 2. ممنوع التطبيل أو ادعاء ميزات لم تبرمجها. "
-        f"3. اعتمد على هذه الأنشطة الحقيقية المسجلة فقط: {last_activities}. "
-        f"4. إذا سألك هاني ماذا فعلت، اذكر الأنشطة المسجلة بالوقت والتاريخ."
+        f"أنت نظام تشغيل Empire OS المسؤول عن بناء 'المدير السيادي'. "
+        f"توقيت السويد: {datetime.datetime.now(SWEDEN_TZ)}. "
+        f"مهمتك: العمل في 'المختبر' فقط. ممنوع تعديل الكود الأساسي (app.py). "
+        f"عندما يطلب هاني ميزة جديدة، اكتب كودها واقترحه عليه كمسودة ليقوم هو بوضعها في sovereign_lab.py. "
+        f"آخر أنشطة المختبر: {last_activities}"
     )
     
     response = llm.invoke([
@@ -69,15 +74,9 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         HumanMessage(content=user_text)
     ])
     
-    # حفظ الدروس والخبرات
-    if "سجل" in user_text:
-        memory[str(datetime.datetime.now(SWEDEN_TZ))] = user_text
-        save_data(MEMORY_FILE, memory)
-        await update.message.reply_text("✅ تم تسجيل المعلومة في الذاكرة الدائمة.")
-    else:
-        await update.message.reply_text(response.content)
+    await update.message.reply_text(response.content)
 
-# --- التشغيل ---
+# --- تشغيل النظام ---
 async def main():
     application = ApplicationBuilder().token(TOKEN).build()
     await application.bot.delete_webhook(drop_pending_updates=True)
@@ -89,7 +88,7 @@ async def main():
     while True: await asyncio.sleep(1)
 
 @app.route('/')
-def home(): return "Empire OS: Sovereign Manager Engine v7.1 (Sweden Time Active)"
+def home(): return "Empire OS v7.2: Product Lab Mode Active (Secure Control)"
 
 if __name__ == '__main__':
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000), daemon=True).start()
