@@ -7,4 +7,5 @@ langchain-groq
 langchain-core
 googlesearch-python
 hypercorn
+pytz
 duckduckgo-search
