@@ -14,3 +14,4 @@ duckduckgo-search==6.3.0
 APScheduler==3.10.4
 ddgs
 google-generativeai>=0.8.0
+PyGithub
