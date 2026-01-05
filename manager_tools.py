@@ -12,7 +12,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 GK_KEY = os.environ.get("GROQ_API_KEY")
 GOOGLE_KEY = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")  # المفتاح المبرمج في Render
-REPO_NAME = "YOUR_USERNAME/Sovereign-Assets" # استبدل YOUR_USERNAME باسم حسابك
+REPO_NAME = "hanigif/Sovereign-Assets" # استبدل YOUR_USERNAME باسم حسابك
 SWEDEN_TZ = pytz.timezone('Europe/Stockholm')
 KNOWLEDGE_BASE_DIR = "knowledge_base"
 PRODUCTION_DIR = "production_v1"
