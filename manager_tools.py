@@ -28,12 +28,12 @@ llm_backup = ChatGroq(
 # 2. عقل Gemini (المحرك الأساسي - مع معالجة الأخطاء)
 try:
     llm_gemini = ChatGoogleGenerativeAI(
-        model="gemini-1.5-pro", # التبديل لنسخة Pro لثبات أعلى
+        model="gemini-1.5-pro", 
         google_api_key=GOOGLE_KEY,
         convert_system_message_to_human=True
     )
 except Exception:
-    llm_gemini = llm_backup # تحويل تلقائي في حال فشل الإعداد
+    llm_gemini = llm_backup 
 
 search_tool = DuckDuckGoSearchRun()
 
@@ -63,43 +63,59 @@ def archive_learning(role, task, content):
         json.dump(data, f, ensure_ascii=False, indent=4)
 
 def get_board_decision(task):
-    """تنسيق قرار مجلس الإدارة الرقمي المحصن"""
+    """تنسيق قرار مجلس الإدارة: ابتكار منتجات لقطاع الصحة الرقمي (HealthTech)"""
     try:
-        # 1. البحث عن الفرص
-        search_results = search_tool.run(task)
+        # 1. البحث عن مشاكل الخصوصية والامتثال في القطاع الصحي 2026
+        # نركز البحث على السويد وأوروبا (AI Act & GDPR)
+        search_query = (
+            f"HealthTech Sweden AI compliance issues 2026 - "
+            f"patient data privacy gaps in private clinics - AI Act healthcare impact"
+        )
+        search_results = search_tool.run(search_query)
         
-        # 2. تحليل CTO (عبر Llama/Groq)
-        cto_prompt = f"حلل تقنياً لعام 2026 الفرص التالية: {search_results}"
+        # 2. تحليل CTO (عبر Llama/Groq) - ابتكار الحل التقني
+        cto_prompt = (
+            f"بناءً على مشاكل الخصوصية الطبية: {search_results}. "
+            f"صمم 'وكيل امتثال سيادي' (Sovereign Compliance Agent) يقوم بتجهيل بيانات المرضى (Anonymization) "
+            f"قبل معالجتها بأي ذكاء اصطناعي. ركز على كود يمكن بيعه كبراءة اختراع أو SaaS."
+        )
         op1 = safe_invoke(llm_backup, [
-            SystemMessage(content="أنت CTO خبير ومستشار سيادي."), 
+            SystemMessage(content="أنت CTO خبير في الأمن السيبراني الطبي والامتثال الرقمي لعام 2026."), 
             HumanMessage(content=cto_prompt)
         ])
         
-        # 3. تحليل COO (عبر Gemini مع حماية Fallback)
-        coo_prompt = f"صغ نموذج ربحية بناءً على: {search_results}"
+        # 3. تحليل COO (عبر Gemini) - استراتيجية الربح والبيع
+        coo_prompt = (
+            f"الحل التقني: {op1[:500]}. "
+            f"صغ نموذج ربحية لبيعه للعيادات والمستشفيات الخاصة في السويد. "
+            f"كم السعر المتوقع؟ وكيف نضمن تسابق الشركات لشرائه لتجنب غرامات AI Act؟"
+        )
         op2 = safe_invoke(llm_gemini, [
-            SystemMessage(content="أنت COO استراتيجي مالي."), 
+            SystemMessage(content="أنت COO استراتيجي متخصص في تطوير أعمال الـ HealthTech والاشتراكات عالية القيمة."), 
             HumanMessage(content=coo_prompt)
         ])
         
-        # 4. تلخيص المدير السيادي (القرار النهائي)
-        summary_prompt = f"الرؤية التقنية: {op1[:500]}. الرؤية المالية: {op2[:500]}. صغ القرار النهائي."
+        # 4. تلخيص المدير السيادي (القرار النهائي والمنتج للبيع)
+        summary_prompt = (
+            f"الرؤية التقنية: {op1[:500]}. الرؤية المالية: {op2[:500]}. "
+            f"صغ المنتج النهائي الذي سأقوم ببيعه لشركات الصحة."
+        )
         executive_summary = safe_invoke(llm_gemini, [
-            SystemMessage(content="أنت المدير التنفيذي السيادي."), 
+            SystemMessage(content="أنت المدير التنفيذي السيادي. هدفك تحويل المشاكل التقنية إلى منتجات غالية الثمن."), 
             HumanMessage(content=summary_prompt)
         ])
         
-        # 5. الأرشفة السيادية
-        archive_learning("CTO", task, op1)
-        archive_learning("COO", task, op2)
-        archive_learning("MANAGER", task, executive_summary)
+        # 5. الأرشفة السيادية المحدثة
+        archive_learning("CTO_TECH", task, op1)
+        archive_learning("COO_BUSINESS", task, op2)
+        archive_learning("SOVEREIGN_MANAGER", task, executive_summary)
         
         current_time = datetime.datetime.now(SWEDEN_TZ).strftime("%H:%M")
-        return (f"🏛️ **قرار مجلس الإدارة السيادي ({current_time})**\n\n"
-                f"🎯 **الخلاصة:** {executive_summary}\n\n"
-                f"🛠️ **تقنياً:** {op1[:200]}...\n\n"
-                f"💰 **مالياً:** {op2[:200]}...\n\n"
-                f"📁 تم التحديث بنجاح (نظام الحماية نشط).")
+        return (f"🏛️ **قرار مجلس الإدارة السيادي (قطاع الصحة 2026)**\n\n"
+                f"🎯 **المنتج المبتكر للبيع:** {executive_summary}\n\n"
+                f"🛠️ **القيمة التقنية:** {op1[:250]}...\n\n"
+                f"💰 **خطة تحقيق الدخل:** {op2[:250]}...\n\n"
+                f"📁 تم التحديث بنجاح (نظام الحماية والهدف الطبي نشط).")
 
     except Exception as e:
         return f"❌ خطأ حرج في النظام السيادي: {str(e)}"
