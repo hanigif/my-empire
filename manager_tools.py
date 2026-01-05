@@ -12,20 +12,20 @@ GK_KEY = os.environ.get("GROQ_API_KEY")
 GOOGLE_KEY = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
 SWEDEN_TZ = pytz.timezone('Europe/Stockholm')
 KNOWLEDGE_BASE_DIR = "knowledge_base"
+PRODUCTION_DIR = "production_v1"
 
-if not os.path.exists(KNOWLEDGE_BASE_DIR):
-    os.makedirs(KNOWLEDGE_BASE_DIR)
+# إنشاء المجلدات الأساسية إذا لم توجد
+for folder in [KNOWLEDGE_BASE_DIR, PRODUCTION_DIR]:
+    if not os.path.exists(folder):
+        os.makedirs(folder)
 
-# --- إعداد العقول السيادية مع نظام الحماية ---
-
-# 1. عقل Groq (المستقر جداً - الصمام الاحتياطي)
+# --- إعداد العقول السيادية (الإنتاجية) ---
 llm_backup = ChatGroq(
     temperature=0.1, 
     model_name="llama-3.3-70b-versatile", 
     groq_api_key=GK_KEY
 )
 
-# 2. عقل Gemini (المحرك الأساسي)
 try:
     llm_gemini = ChatGoogleGenerativeAI(
         model="gemini-1.5-pro", 
@@ -38,79 +38,75 @@ except Exception:
 search_tool = DuckDuckGoSearchRun()
 
 def safe_invoke(llm, messages):
-    """استدعاء ذكي: إذا فشل المحرك الأساسي، ينتقل للاحتياطي فوراً"""
+    """استدعاء ذكي مع نظام تبديل آلي"""
     try:
         return llm.invoke(messages).content
     except Exception as e:
-        print(f"⚠️ تنبيه: تم تفعيل المحرك الاحتياطي بسبب: {str(e)}")
+        print(f"⚠️ تحويل للمحرك الاحتياطي: {str(e)}")
         return llm_backup.invoke(messages).content
 
-def archive_learning(role, task, content):
-    """أرشفة البيانات في قاعدة المعرفة - الأساس الذي لا يمس"""
-    file_path = os.path.join(KNOWLEDGE_BASE_DIR, f"{role.lower()}_brain.json")
+def archive_and_save_code(role, filename, content):
+    """حفظ الكود المنتج كملكية فكرية مستقلة وأرشفة المهمة"""
+    # 1. حفظ الكود كملف قابل للتشغيل
+    file_path = os.path.join(PRODUCTION_DIR, filename)
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(content)
+    
+    # 2. أرشفة العملية في قاعدة المعرفة (الأساس الذي لا يمس)
+    archive_path = os.path.join(KNOWLEDGE_BASE_DIR, f"{role.lower()}_brain.json")
     entry = {
         "timestamp": datetime.datetime.now(SWEDEN_TZ).strftime("%Y-%m-%d %H:%M:%S"),
-        "task": task,
-        "content": content
+        "file_generated": filename,
+        "content_preview": content[:200]
     }
     data = []
-    if os.path.exists(file_path):
-        with open(file_path, "r", encoding="utf-8") as f:
+    if os.path.exists(archive_path):
+        with open(archive_path, "r", encoding="utf-8") as f:
             try: data = json.load(f)
             except: data = []
     data.append(entry)
-    with open(file_path, "w", encoding="utf-8") as f:
+    with open(archive_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
+    return file_path
 
 def get_board_decision(task):
-    """تنسيق قرار مجلس الإدارة: الهندسة التقنية واستراتيجية البيع لقطاع الصحة 2026"""
+    """دورة الإنتاج السيادي: توليد كود المنتج وخطط البيع"""
     try:
-        # 1. البحث عن المعايير التقنية الصارمة للامتثال الطبي 2026
-        search_query = (
-            f"Technical standards for medical data anonymization 2026 - "
-            f"Differential Privacy in healthcare AI Europe - AI Act compliance automated auditing"
-        )
+        # 1. البحث عن أحدث تقنيات التجهيل البرمجية 2026
+        search_query = f"Python implementation Differential Privacy healthcare PII scrubbing 2026"
         search_results = search_tool.run(search_query)
         
-        # 2. تحليل CTO (عبر Llama/Groq) - التصميم الهيكلي للمنتج
+        # 2. مهندس الإنتاج (CTO) - كتابة كود المحرك الخاص بك
         cto_prompt = (
-            f"بناءً على المعايير: {search_results}. صمم الهيكل الهندسي لـ 'وكيل الامتثال السيادي'. "
-            f"حدد خوارزميات التجهيل (مثل Differential Privacy) وكيفية بناء نظام الـ Audit Log "
-            f"الذي يثبت قانونياً أن البيانات لم تتسرب للذكاء الاصطناعي."
+            f"بناءً على التقنيات: {search_results}. اكتب كود بايثون كامل واحترافي لوحدة 'Sovereign Anonymizer'. "
+            f"يجب أن يتضمن الكود وظائف مسح البيانات الشخصية (PII) وتشفيرها قبل خروجها للـ AI. "
+            f"أريد كوداً نظيفاً (Clean Code) يمكن بيعه كمنتج مستقل."
         )
-        op1 = safe_invoke(llm_backup, [
-            SystemMessage(content="أنت كبير مهندسي برمجيات (Lead Architect) متخصص في أنظمة الأمان الطبية والامتثال القانوني."), 
+        source_code = safe_invoke(llm_backup, [
+            SystemMessage(content="أنت كبير مهندسي برمجيات. وظيفتك كتابة كود بايثون فعلي وجاهز للإنتاج فقط."), 
             HumanMessage(content=cto_prompt)
         ])
         
-        # 3. تحليل COO (عبر Gemini) - تحويل التقنية إلى 'عرض لا يرفض'
+        # 3. مدير الاستراتيجية (COO) - صياغة ملف البيع (README)
         coo_prompt = (
-            f"التصميم التقني: {op1[:500]}. صمم 'وعد القيمة' (Value Proposition) لمدراء المستشفيات. "
-            f"كيف نستخدم ميزة 'إثبات الامتثال الفوري' لبيعه بأعلى سعر وتجاوز المنافسين؟ "
-            f"حدد باقات السعر لعام 2026 لخدمة الـ SaaS الطبية."
+            f"الكود المنتج هو: {source_code[:500]}. صمم عرض القيمة (Value Proposition) "
+            f"وملف README.md احترافي بالإنجليزية يوضح للشركات كيف يحميهم هذا الكود قانونياً."
         )
-        op2 = safe_invoke(llm_gemini, [
-            SystemMessage(content="أنت خبير استراتيجيات بيع (Growth Hacker) في قطاع الـ HealthTech الأوروبي."), 
+        sales_strategy = safe_invoke(llm_gemini, [
+            SystemMessage(content="أنت خبير نمو وبيع تقني (Growth Hacker)."), 
             HumanMessage(content=coo_prompt)
         ])
         
-        # 4. تلخيص المدير السيادي (القرار النهائي)
-        executive_summary = safe_invoke(llm_gemini, [
-            SystemMessage(content="أنت المدير التنفيذي السيادي. وظيفتك صياغة العرض الفني والمالي النهائي الذي سيباع للشركات."), 
-            HumanMessage(content=f"الهندسة: {op1[:400]}. استراتيجية البيع: {op2[:400]}. صغ العرض النهائي للعملاء.")
-        ])
-        
-        # 5. الأرشفة السيادية المحدثة
-        archive_learning("TECH_SPECS", task, op1)
-        archive_learning("SALES_STRATEGY", task, op2)
-        archive_learning("FINAL_OFFER", task, executive_summary)
+        # 4. حفظ الإنتاج (تحويل التنظير إلى ملفات)
+        code_file = archive_and_save_code("TECH_SPECS", "sovereign_logic.py", source_code)
+        readme_file = archive_and_save_code("SALES_STRATEGY", "PRODUCT_OFFER.md", sales_strategy)
         
         current_time = datetime.datetime.now(SWEDEN_TZ).strftime("%H:%M")
-        return (f"🏛️ **قرار مجلس الإدارة السيادي - الهندسة والبيع ({current_time})**\n\n"
-                f"🎯 **العرض النهائي (غير قابل للرفض):** {executive_summary}\n\n"
-                f"🛠️ **المواصفات الهندسية للمحرك:** {op1[:300]}...\n\n"
-                f"📜 **نظام إثبات الامتثال:** {op2[:300]}...\n\n"
-                f"📁 تم حفظ المخططات الهندسية في 'الأساس الذي لا يمس'.")
+        return (f"🏛️ **تم تشغيل خط الإنتاج السيادي ({current_time})**\n\n"
+                f"🛠️ **المنتج البرمجي:** تم إنشاء `{code_file}` بنجاح.\n"
+                f"📜 **مستندات البيع:** تم إنشاء `{readme_file}`.\n\n"
+                f"🎯 **ملخص المدير:** هذا الكود هو ملكيتك الفكرية. لقد قمنا ببرمجة نظام التجهيل "
+                f"بدلاً من مجرد التخطيط له. الملفات جاهزة للتسليم للعملاء.")
 
     except Exception as e:
-        return f"❌ خطأ حرج في الدورة الهندسية: {str(e)}"
+        return f"❌ خطأ حرج في خط الإنتاج: {str(e)}"
