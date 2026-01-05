@@ -83,11 +83,11 @@ def get_board_decision(task):
             HumanMessage(content=cto_prompt)
         ])
         
-        # 3. تحليل COO (عبر Gemini) - تحويل التقنية إلى "عرض لا يرفض"
+        # 3. تحليل COO (عبر Gemini) - تحويل التقنية إلى 'عرض لا يرفض'
         coo_prompt = (
             f"التصميم التقني: {op1[:500]}. صمم 'وعد القيمة' (Value Proposition) لمدراء المستشفيات. "
             f"كيف نستخدم ميزة 'إثبات الامتثال الفوري' لبيعه بأعلى سعر وتجاوز المنافسين؟ "
-            f"حدد باقات السعر لعام 2026."
+            f"حدد باقات السعر لعام 2026 لخدمة الـ SaaS الطبية."
         )
         op2 = safe_invoke(llm_gemini, [
             SystemMessage(content="أنت خبير استراتيجيات بيع (Growth Hacker) في قطاع الـ HealthTech الأوروبي."), 
@@ -100,7 +100,7 @@ def get_board_decision(task):
             HumanMessage(content=f"الهندسة: {op1[:400]}. استراتيجية البيع: {op2[:400]}. صغ العرض النهائي للعملاء.")
         ])
         
-        # 5. الأرشفة السيادية
+        # 5. الأرشفة السيادية المحدثة
         archive_learning("TECH_SPECS", task, op1)
         archive_learning("SALES_STRATEGY", task, op2)
         archive_learning("FINAL_OFFER", task, executive_summary)
