@@ -25,7 +25,7 @@ llm_backup = ChatGroq(
     groq_api_key=GK_KEY
 )
 
-# 2. عقل Gemini (المحرك الأساسي - مع معالجة الأخطاء)
+# 2. عقل Gemini (المحرك الأساسي)
 try:
     llm_gemini = ChatGoogleGenerativeAI(
         model="gemini-1.5-pro", 
@@ -63,59 +63,54 @@ def archive_learning(role, task, content):
         json.dump(data, f, ensure_ascii=False, indent=4)
 
 def get_board_decision(task):
-    """تنسيق قرار مجلس الإدارة: ابتكار منتجات لقطاع الصحة الرقمي (HealthTech)"""
+    """تنسيق قرار مجلس الإدارة: الهندسة التقنية واستراتيجية البيع لقطاع الصحة 2026"""
     try:
-        # 1. البحث عن مشاكل الخصوصية والامتثال في القطاع الصحي 2026
-        # نركز البحث على السويد وأوروبا (AI Act & GDPR)
+        # 1. البحث عن المعايير التقنية الصارمة للامتثال الطبي 2026
         search_query = (
-            f"HealthTech Sweden AI compliance issues 2026 - "
-            f"patient data privacy gaps in private clinics - AI Act healthcare impact"
+            f"Technical standards for medical data anonymization 2026 - "
+            f"Differential Privacy in healthcare AI Europe - AI Act compliance automated auditing"
         )
         search_results = search_tool.run(search_query)
         
-        # 2. تحليل CTO (عبر Llama/Groq) - ابتكار الحل التقني
+        # 2. تحليل CTO (عبر Llama/Groq) - التصميم الهيكلي للمنتج
         cto_prompt = (
-            f"بناءً على مشاكل الخصوصية الطبية: {search_results}. "
-            f"صمم 'وكيل امتثال سيادي' (Sovereign Compliance Agent) يقوم بتجهيل بيانات المرضى (Anonymization) "
-            f"قبل معالجتها بأي ذكاء اصطناعي. ركز على كود يمكن بيعه كبراءة اختراع أو SaaS."
+            f"بناءً على المعايير: {search_results}. صمم الهيكل الهندسي لـ 'وكيل الامتثال السيادي'. "
+            f"حدد خوارزميات التجهيل (مثل Differential Privacy) وكيفية بناء نظام الـ Audit Log "
+            f"الذي يثبت قانونياً أن البيانات لم تتسرب للذكاء الاصطناعي."
         )
         op1 = safe_invoke(llm_backup, [
-            SystemMessage(content="أنت CTO خبير في الأمن السيبراني الطبي والامتثال الرقمي لعام 2026."), 
+            SystemMessage(content="أنت كبير مهندسي برمجيات (Lead Architect) متخصص في أنظمة الأمان الطبية والامتثال القانوني."), 
             HumanMessage(content=cto_prompt)
         ])
         
-        # 3. تحليل COO (عبر Gemini) - استراتيجية الربح والبيع
+        # 3. تحليل COO (عبر Gemini) - تحويل التقنية إلى "عرض لا يرفض"
         coo_prompt = (
-            f"الحل التقني: {op1[:500]}. "
-            f"صغ نموذج ربحية لبيعه للعيادات والمستشفيات الخاصة في السويد. "
-            f"كم السعر المتوقع؟ وكيف نضمن تسابق الشركات لشرائه لتجنب غرامات AI Act؟"
+            f"التصميم التقني: {op1[:500]}. صمم 'وعد القيمة' (Value Proposition) لمدراء المستشفيات. "
+            f"كيف نستخدم ميزة 'إثبات الامتثال الفوري' لبيعه بأعلى سعر وتجاوز المنافسين؟ "
+            f"حدد باقات السعر لعام 2026."
         )
         op2 = safe_invoke(llm_gemini, [
-            SystemMessage(content="أنت COO استراتيجي متخصص في تطوير أعمال الـ HealthTech والاشتراكات عالية القيمة."), 
+            SystemMessage(content="أنت خبير استراتيجيات بيع (Growth Hacker) في قطاع الـ HealthTech الأوروبي."), 
             HumanMessage(content=coo_prompt)
         ])
         
-        # 4. تلخيص المدير السيادي (القرار النهائي والمنتج للبيع)
-        summary_prompt = (
-            f"الرؤية التقنية: {op1[:500]}. الرؤية المالية: {op2[:500]}. "
-            f"صغ المنتج النهائي الذي سأقوم ببيعه لشركات الصحة."
-        )
+        # 4. تلخيص المدير السيادي (القرار النهائي)
         executive_summary = safe_invoke(llm_gemini, [
-            SystemMessage(content="أنت المدير التنفيذي السيادي. هدفك تحويل المشاكل التقنية إلى منتجات غالية الثمن."), 
-            HumanMessage(content=summary_prompt)
+            SystemMessage(content="أنت المدير التنفيذي السيادي. وظيفتك صياغة العرض الفني والمالي النهائي الذي سيباع للشركات."), 
+            HumanMessage(content=f"الهندسة: {op1[:400]}. استراتيجية البيع: {op2[:400]}. صغ العرض النهائي للعملاء.")
         ])
         
-        # 5. الأرشفة السيادية المحدثة
-        archive_learning("CTO_TECH", task, op1)
-        archive_learning("COO_BUSINESS", task, op2)
-        archive_learning("SOVEREIGN_MANAGER", task, executive_summary)
+        # 5. الأرشفة السيادية
+        archive_learning("TECH_SPECS", task, op1)
+        archive_learning("SALES_STRATEGY", task, op2)
+        archive_learning("FINAL_OFFER", task, executive_summary)
         
         current_time = datetime.datetime.now(SWEDEN_TZ).strftime("%H:%M")
-        return (f"🏛️ **قرار مجلس الإدارة السيادي (قطاع الصحة 2026)**\n\n"
-                f"🎯 **المنتج المبتكر للبيع:** {executive_summary}\n\n"
-                f"🛠️ **القيمة التقنية:** {op1[:250]}...\n\n"
-                f"💰 **خطة تحقيق الدخل:** {op2[:250]}...\n\n"
-                f"📁 تم التحديث بنجاح (نظام الحماية والهدف الطبي نشط).")
+        return (f"🏛️ **قرار مجلس الإدارة السيادي - الهندسة والبيع ({current_time})**\n\n"
+                f"🎯 **العرض النهائي (غير قابل للرفض):** {executive_summary}\n\n"
+                f"🛠️ **المواصفات الهندسية للمحرك:** {op1[:300]}...\n\n"
+                f"📜 **نظام إثبات الامتثال:** {op2[:300]}...\n\n"
+                f"📁 تم حفظ المخططات الهندسية في 'الأساس الذي لا يمس'.")
 
     except Exception as e:
-        return f"❌ خطأ حرج في النظام السيادي: {str(e)}"
+        return f"❌ خطأ حرج في الدورة الهندسية: {str(e)}"
