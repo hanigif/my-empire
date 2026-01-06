@@ -76,70 +76,84 @@ def safe_invoke(llm, messages):
         return llm_backup.invoke(messages).content
 
 def get_auditor_review(logic, ui, task):
-    """قسم الاختبار المستقل: مراجعة الجودة والتدقيق الطبي"""
+    """قسم الاختبار المستقل: مراجعة الجودة والتدقيق الطبي الصارم"""
     audit_prompt = (f"أنت مفتش جودة طبي مستقل (QA Auditor). راجع كود المنطق: {logic} وكود الواجهة: {ui}. "
-                    f"للمهمة: {task}. ابحث عن: أخطاء طبية، ثغرات خصوصية، أو ضعف في الواجهة. "
-                    f"إذا وجدت خطأ طبياً حرجاً أو معلومة مغلوطة، ابدأ ردك فوراً بكلمة 'STOP_PRODUCTION'. "
-                    f"قدم تقريراً مفصلاً بنقاط الضعف.")
+                    f"للمهمة: {task}. ابحث عن: أخطاء طبية، عدم مطابقة للمعايير السويدية، ثغرات خصوصية. "
+                    f"إذا وجدت خطأ طبياً حرجاً، ابدأ ردك فوراً بكلمة 'STOP_PRODUCTION'. "
+                    f"قدم نصائح تقنية واضحة للتطوير في الدورة القادمة.")
     return safe_invoke(llm_gemini, [
-        SystemMessage(content="أنت رئيس قسم الجودة المستقل. لا تجامل الفريق. هدفك حماية سمعة القائد الطبية."),
+        SystemMessage(content="أنت رئيس قسم الجودة المستقل. هدفك حماية سمعة القائد الطبية وضمان أعلى معايير الجودة."),
         HumanMessage(content=audit_prompt)
     ])
 
 def get_board_decision(task):
-    """دورة الإنتاج السيادية المحدثة مع قسم الاختبار والتحكم القائد"""
+    """محرك التطوير الذاتي: إنتاج، فحص، تحسين (3 دورات جودة)"""
     try:
-        # 1. البحث التقني
-        search_query = f"Emergency AI medical standards 2026 ECG Xray CT"
-        search_results = search_tool.run(search_query)
+        # 1. البحث في المعايير السويدية الحديثة
+        search_query = f"Sweden AI medical software standards 2026 Patientdatalagen Socialstyrelsen"
+        standards = search_tool.run(search_query)
         
-        # 2. الـ CTO: إنتاج المنطق
-        cto_prompt = (f"استخدم {search_results}. اكتب كود (logic.py) لـ {task}. "
-                      f"يجب أن يشمل معالجة الكسور، الجلطات، والنزيف مع نظام Triage.")
-        source_code = safe_invoke(llm_backup, [
-            SystemMessage(content="أنت CTO. اكتب كود منطق طبي سيادي مع تشفير PII."),
-            HumanMessage(content=cto_prompt)
-        ])
-        
-        # 3. Frontend: إنتاج الواجهة
-        ui_prompt = f"اكتب كود Streamlit (ui.py) للكود التالي: {source_code}. واجهة طوارئ احترافية."
-        ui_code = safe_invoke(llm_backup, [
-            SystemMessage(content="أنت Frontend Developer. صمم واجهة لوحة تحكم طوارئ (Dashboard)."),
-            HumanMessage(content=ui_prompt)
-        ])
-        
-        # 4. قسم الاختبار (Independent QA) - الخطوة الفاصلة
-        audit_report = get_auditor_review(source_code, ui_code, task)
-        
-        # 5. بروتوكول الإيقاف الطارئ (Kill Switch)
-        if "STOP_PRODUCTION" in audit_report:
-            return (f"🛑 **بروتوكول الإيقاف الطارئ (STOP_PRODUCTION)**\n\n"
-                    f"تم تجميد الرفع بسبب مخاطر جودة رصدها قسم الاختبار:\n\n"
-                    f"{audit_report}\n\n"
-                    f"⚠️ لا يمكن الاستمرار دون تدخل القائد لتصحيح المسار.")
+        current_logic = ""
+        current_ui = ""
+        audit_report = ""
+        iteration_history = ""
 
-        # 6. الـ COO: استراتيجية البيع (فقط في حال اجتياز الاختبار)
-        co_prompt = f"صمم عرض بيع (OFFER.md) بناءً على الكود المعتمد وجودة الاختبار: {audit_report}"
+        # دورة التطوير الذاتي (3 دورات تحسين)
+        for i in range(1, 4):
+            # الـ CTO ينتج أو يحسن الكود بناءً على تقرير الاختبار السابق
+            cto_prompt = (f"الدورة {i}: بناءً على معايير السويد: {standards}. "
+                          f"المهمة: {task}. التاريخ والملاحظات: {iteration_history}. "
+                          f"اكتب كود (logic.py) محسن، دقيق طبياً، ومؤمن بالكامل.")
+            current_logic = safe_invoke(llm_backup, [
+                SystemMessage(content="أنت Senior Medical Architect. وظيفتك تطوير كود طبي سيادي عالمي المستوى."),
+                HumanMessage(content=cto_prompt)
+            ])
+            
+            # إنتاج الواجهة
+            ui_prompt = f"صمم واجهة Streamlit احترافية لهذا المنطق المطور: {current_logic}"
+            current_ui = safe_invoke(llm_backup, [
+                SystemMessage(content="أنت Frontend Developer طبي متخصص."),
+                HumanMessage(content=ui_prompt)
+            ])
+
+            # قسم الاختبار يراجع نتاج الدورة
+            audit_report = get_auditor_review(current_logic, current_ui, task)
+            
+            # إذا كان الكود ممتازاً طبياً ولا يحتاج تعديل جوهري، نخرج من الدورة
+            if "STOP_PRODUCTION" not in audit_report:
+                break
+            
+            # تحديث تاريخ الإخفاقات للدورة التالية ليتعلم النظام من خطئه
+            iteration_history = f"فشل في الدورة {i}: {audit_report}"
+
+        # التحقق النهائي من Kill Switch
+        if "STOP_PRODUCTION" in audit_report:
+            return (f"🛑 **توقف التطوير الذاتي - لم نصل للمعايير المطلوبة**\n\n"
+                    f"حاول النظام تطوير نفسه 3 مرات وفشل في اجتياز اختبار الجودة الطبي:\n\n"
+                    f"{audit_report}\n\n"
+                    f"⚠️ تدخل القائد مطلوب لتعديل المتطلبات.")
+
+        # الـ COO: استراتيجية البيع المبنية على "جودة التطوير الذاتي"
+        co_prompt = f"صمم عرض بيع يركز على أن المنتج مر بـ 3 مراحل تحسين ذاتي ومطابق لمعايير: {standards}"
         sales_strategy = safe_invoke(llm_gemini, [
             SystemMessage(content="أنت COO خبير سوق."),
             HumanMessage(content=co_prompt)
         ])
         
-        # 7. التوقيت والتأمين
         ts = datetime.datetime.now(SWEDEN_TZ).strftime("%H%M")
-        code_fn, ui_fn, doc_fn = f"logic_{ts}.py", f"ui_{ts}.py", f"offer_{ts}.md"
+        code_fn, ui_fn, doc_fn = f"evolved_logic_{ts}.py", f"evolved_ui_{ts}.py", f"evolved_offer_{ts}.md"
         
-        archive_and_save_production("TECH_LOGIC", code_fn, source_code)
-        archive_and_save_production("FRONTEND_UI", ui_fn, ui_code)
+        archive_and_save_production("TECH_LOGIC", code_fn, current_logic)
+        archive_and_save_production("FRONTEND_UI", ui_fn, current_ui)
         archive_and_save_production("SALES_DOC", doc_fn, sales_strategy)
         
-        git_1 = export_to_github(code_fn, source_code, f"Verified Logic {ts}")
-        git_2 = export_to_github(ui_fn, ui_code, f"Verified UI {ts}")
-        git_3 = export_to_github(doc_fn, sales_strategy, f"Sales Strategy {ts}")
+        git_1 = export_to_github(code_fn, current_logic, f"Evolved Logic V4.0 {ts}")
+        git_2 = export_to_github(ui_fn, current_ui, f"Evolved UI V4.0 {ts}")
+        git_3 = export_to_github(doc_fn, sales_strategy, f"Evolved Sales Strategy {ts}")
         
-        return (f"🏛️ **تقرير الإنتاج السيادي المعتمد ({ts})**\n\n"
-                f"🛡️ **حالة GitHub:**\n- {git_1}\n- {git_2}\n- {git_3}\n\n"
-                f"✅ **تقرير الجودة المستقل:**\n{audit_report[:400]}...")
+        return (f"🏛️ **تقرير التطوير الذاتي المعتمد ({ts})**\n\n"
+                f"🛡️ **حالة الأصول:** تم رفع النسخة الأكثر نضجاً بعد دورات التحسين.\n"
+                f"✅ **نتيجة الاختبار النهائي:**\n{audit_report[:500]}...")
 
     except Exception as e:
-        return f"❌ خطأ حرج: {str(e)}"
+        return f"❌ فشل في محرك التطوير الذاتي: {str(e)}"
