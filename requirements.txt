@@ -15,3 +15,6 @@ APScheduler==3.10.4
 ddgs
 google-generativeai>=0.8.0
 PyGithub
+langchain-google-genai>=1.0.0
+langchain-groq>=0.1.0
+google-generativeai>=0.5.0
