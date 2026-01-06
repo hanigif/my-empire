@@ -29,23 +29,37 @@ class StrategyCore:
             logging.error(f"❌ فشل تهيئة Groq: {e}")
             self.programmer = None
             
-        # 2. إعداد المحامي والمدقق (Gemini) - تم حل مشكلة 404 هنا
-        try:
-            if self.gemini_key:
-                # نستخدم gemini-1.5-flash كاسم أساسي لأنه الأكثر استقراراً في 2026
-                self.legal_guardian = ChatGoogleGenerativeAI(
-                    model="gemini-1.5-flash", 
-                    google_api_key=self.gemini_key
+        # 2. إعداد المحامي والمدقق (Gemini) - حل جذري لمشكلة الـ 404
+        self.legal_guardian = self._initialize_gemini()
+
+    def _initialize_gemini(self):
+        """محاولة تهيئة الموديل بأكثر من صيغة لضمان تخطي خطأ 404"""
+        if not self.gemini_key:
+            return None
+        
+        # قائمة بالأسماء الممكنة للموديل حسب تحديثات Google 2026
+        model_variants = ["gemini-1.5-flash", "models/gemini-1.5-flash", "gemini-pro"]
+        
+        for model_name in model_variants:
+            try:
+                model = ChatGoogleGenerativeAI(
+                    model=model_name, 
+                    google_api_key=self.gemini_key,
+                    temperature=0
                 )
-            else:
-                self.legal_guardian = None
-        except Exception as e:
-            logging.error(f"❌ فشل تهيئة Gemini: {e}")
-            self.legal_guardian = None
+                # اختبار الاتصال فوراً للتأكد من أن الموديل موجود (404 check)
+                model.invoke([HumanMessage(content="test")])
+                logging.info(f"✅ تم تفعيل المحامي الرقمي بنجاح باستخدام: {model_name}")
+                return model
+            except Exception as e:
+                logging.warning(f"⚠️ فشل الاتصال بـ {model_name}: {e}")
+                continue
+        
+        logging.error("❌ فشل تشغيل جميع محركات Gemini. تأكد من إعدادات المنطقة والمفتاح.")
+        return None
 
     def _fetch_reliable_info(self, topic):
         """البحث عن معلومات من مصادر سويدية موثوقة فقط 2026 (الهدف رقم 3)"""
-        # نركز البحث على الهيئات الحكومية السويدية لضمان السيادة
         search_query = f"{topic} site:gov.se OR site:socialstyrelsen.se OR site:riksdagen.se 2026"
         try:
             return self.search_tool.run(search_query)
@@ -55,7 +69,7 @@ class StrategyCore:
     def fact_check_service(self, raw_info):
         """المدقق السيادي: فحص المعلومات وتنقيتها من الأخطاء (الهدف رقم 6)"""
         if not self.legal_guardian:
-            return "تحذير: المحرك القانوني غير متصل. البيانات غير مدققة."
+            return f"تحذير: المحرك القانوني غير متصل. البيانات الخام: {raw_info}"
         
         verify_prompt = (
             f"بصفتك مدقق حقائق سيادي، راجع المعلومات التالية: \n{raw_info}\n"
@@ -75,18 +89,15 @@ class StrategyCore:
         """استشارة المبرمج الرقمي مع نظام التبديل الآلي (Failover) (الهدف رقم 9)"""
         prompt = f"المهمة: {task}\nالسياق المحدث والموثق قانونياً: {context}\nاكتب الكود البرمجي اللازم بدقة عالية."
         
-        # منع خطأ NoneType قبل الاستدعاء
         if not self.programmer:
             logging.warning("[!] المبرمج الأساسي غائب. تفعيل خطة الطوارئ...")
             return self._emergency_programming(prompt)
 
         try:
-            # المحاولة الأولى عبر Groq (الأداء الأعلى)
             response = self.programmer.invoke(prompt)
             return response.content
         except Exception as e:
-            # التبديل الآلي في حال تجاوز حدود الطلبات أو أي عطل
-            if "429" in str(e) or "rate_limit" in str(e).lower() or "500" in str(e):
+            if any(err in str(e).lower() for err in ["429", "rate_limit", "500", "overloaded"]):
                 logging.error("[!] عطل في Groq. تفعيل نظام التبديل الآلي لـ Gemini...")
                 return self._emergency_programming(prompt)
             return f"خطأ حرج في الإنتاج البرمجي: {str(e)}"
@@ -107,20 +118,19 @@ class StrategyCore:
     def get_consensus(self, topic):
         """بروتوكول الإجماع السيادي الكامل (بحث - تدقيق - برمجة - مراجعة قانونية - فيتو)"""
         
-        # 1. التأكد من أن "المحامي" جاهز للعمل (لا يمكن المضي قدماً بدونه)
         if not self.legal_guardian:
             raise Exception("VETO_LEGAL: المحرك القانوني غير مفعل. تأكد من GEMINI_API_KEY.")
 
-        # 2. تحديث المعلومات من المصادر الرسمية السويدية
+        # 1. تحديث المعلومات من المصادر الرسمية السويدية
         raw_info = self._fetch_reliable_info(topic)
         
-        # 3. تمرير المعلومات لمدقق الحقائق
+        # 2. تمرير المعلومات لمدقق الحقائق
         verified_context = self.fact_check_service(raw_info)
         
-        # 4. طلب الكود من المبرمج بناءً على السياق المدقق
+        # 3. طلب الكود من المبرمج بناءً على السياق المدقق
         ds_opinion = self.consult_deepseek(topic, verified_context)
         
-        # 5. مراجعة المحامي السويدي النهائية (سلطة الفيتو المطلقة)
+        # 4. مراجعة المحامي السويدي النهائية (سلطة الفيتو المطلقة)
         legal_review_prompt = f"""
         بصفتك المحامي الرسمي للشركة وخبير القانون السويدي 2026:
         راجع المهمة التالية: {topic}
@@ -133,16 +143,14 @@ class StrategyCore:
         
         try:
             legal_decision_resp = self.legal_guardian.invoke([
-                SystemMessage(content="أنت المستشار القانوني السيادي. وظيفتك حماية الشركة من أي مخالفة قانونية سويدية."),
+                SystemMessage(content="أنت المستشار القانوني السيادي. وظيفتك حماية الشركة من المخالفات القانونية."),
                 HumanMessage(content=legal_review_prompt)
             ])
             legal_decision = legal_decision_resp.content
 
-            # 6. تفعيل نظام الفيتو الذي طلبه القائد
             if "REJECTED" in legal_decision.upper():
                 raise Exception(f"VETO_LEGAL: المحامي رفض الإجراء. التفاصيل: {legal_decision}")
 
-            # 7. النجاح: إعادة التقرير المتكامل
             return {
                 "Verified_Context": legal_decision,
                 "DeepSeek_Logic": ds_opinion,
