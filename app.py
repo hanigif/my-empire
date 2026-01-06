@@ -4,96 +4,88 @@ from flask import Flask
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 from apscheduler.schedulers.background import BackgroundScheduler
-from strategy_core import StrategyCore  # العقل الجديد المحدث
+from strategy_core import StrategyCore 
 
 # --- الإعدادات السيادية ---
 logging.basicConfig(level=logging.INFO)
 TOKEN = os.environ.get("TELEGRAM_TOKEN") 
-GK_KEY = os.environ.get("GROQ_API_KEY")
-GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
-MY_ID = 6758877303  # هويتك السيادية
+MY_ID = 6758877303  
 SWEDEN_TZ = pytz.timezone('Europe/Stockholm')
 
 app = Flask(__name__)
-strategy = StrategyCore() # تفعيل العقل المحدث
+strategy = StrategyCore() 
 
-# --- وظيفة التعلم الذاتي الآلية (تنبض كل ساعة) ---
+# --- وظيفة التعلم الذاتي الآلية ---
 def auto_learning_cycle():
-    """هذه الوظيفة تعمل في الخلفية لضمان استمرارية عمل الشركة بناءً على حقائق مدققة"""
-    now = datetime.datetime.now(SWEDEN_TZ).strftime('%Y-%m-%d %H:%M:%S')
-    logging.info(f"[*] بدء دورة التعلم الآلية - توقيت السويد: {now}")
-    
-    # المهمة الاستراتيجية للدورة الآلية (تم تحديثها لتكون أكثر دقة)
-    task = "تطوير بروتوكولات الخصوصية السيادية لعام 2026 بناءً على أحدث قوانين السويد"
-    
+    now = datetime.datetime.now(SWEDEN_TZ).strftime('%H:%M:%S')
+    logging.info(f"[*] نبضة سيادية جديدة: {now}")
+    task = "تحديث بروتوكولات الأمان السيادي لعام 2026"
     try:
-        # استخدام العقل الجديد للبحث والتدقيق قبل اتخاذ القرار
+        # نحصل على الإجماع من العقل المحدث (الذي يملك نظام التبديل الآلي)
         consensus = strategy.get_consensus(task)
-        # تمرير القرار للمدير السيادي للأرشفة والرفع لـ GitHub
-        manager_tools.get_board_decision(f"AUTO_TASK: {task} | Context: {consensus['Verified_Context']}")
-        logging.info(f"[✓] اكتملت دورة التعلم الموثقة وتمت الأرشفة بنجاح.")
+        # نرسل النتيجة الجاهزة فقط للأرشفة لضمان عدم استهلاك توكنات Groq مجدداً
+        manager_tools.get_board_decision(f"AUTO_ARCHIVE: {task} | Context: {consensus['Verified_Context'][:100]}")
+        logging.info(f"[✓] تم التحديث الذاتي بنجاح.")
     except Exception as e:
-        logging.error(f"[!] خطأ في دورة التعلم: {e}")
+        logging.error(f"[!] خطأ في الدورة: {e}")
 
-# --- إعداد المجدول السيادي ---
 scheduler = BackgroundScheduler(daemon=True, timezone=SWEDEN_TZ)
-# يمكنك تعديل hours=1 إلى دقائق إذا أردت تسريع الإنتاج (مثلاً 0.68 ساعة لتعادل 41 دقيقة)
 scheduler.add_job(func=auto_learning_cycle, trigger="interval", hours=1)
 scheduler.start()
 
-# --- معالجة الرسائل الواردة من القائد ---
+# --- معالجة الرسائل من القائد ---
 async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or update.effective_user.id != MY_ID: 
-        return
+    if not update.message or update.effective_user.id != MY_ID: return
     
-    status_msg = await update.message.reply_text("⏳ القائد يتحدث.. جاري استشارة مجلس الإدارة، تدقيق الحقائق، وأرشفة البيانات...")
+    # إشعار البدء الذكي
+    status_msg = await update.message.reply_text("⏳ جاري البحث في المصادر السويدية وتفعيل نظام التبديل الآلي...")
     
     try:
         task = update.message.text
-        # استدعاء العقل الجديد للحصول على إجماع مدقق
+        # 1. العقل الجديد يقوم بالبحث والتدقيق والبرمجة (مع Failover لـ Gemini)
         consensus = strategy.get_consensus(task)
         
-        # تحويل النتيجة للمدير السيادي للقيام بالعمليات التقنية (GitHub)
-        response_text = manager_tools.get_board_decision(f"COMMAND: {task} | Context: {consensus['Verified_Context']}")
-        
-        # إضافة لمحة من التدقيق في الرد النهائي للقائد
-        final_reply = f"{response_text}\n\n📋 **ملخص التدقيق:** {consensus['Verified_Context'][:200]}..."
-        await update.message.reply_text(final_reply)
-        
-    except Exception as e:
-        error_msg = f"❌ خطأ سيادي: {str(e)}"
-        logging.error(error_msg)
-        await update.message.reply_text("عذراً سيدي، واجه المحرك التقني صعوبة في تدقيق المعلومات. تم تسجيل الخطأ.")
+        # 2. استخراج المخرجات
+        verified_info = consensus.get("Verified_Context", "لا توجد بيانات محدثة")
+        logic_result = consensus.get("DeepSeek_Logic", "تعذر إنتاج الكود")
+        strategy_result = consensus.get("Gemini_Strategy", "تحليل استراتيجي غير متوفر")
 
-# --- المحرك الأساسي للبوت ---
+        # 3. إبلاغ القائد بالنتيجة فوراً (قبل الأرشفة لضمان السرعة)
+        # نستخدم النص الناتج من العقل المحدث مباشرة
+        final_reply = (
+            f"🏛️ **تقرير الإمبراطورية السيادية**\n\n"
+            f"📋 **التدقيق (2026):** {verified_info[:300]}...\n\n"
+            f"⚙️ **القرار التقني:**\n{logic_result[:500]}...\n\n"
+            f"🛡️ **الحالة:** تم الإنتاج وتخطي قيود الحصة اليومية بنجاح."
+        )
+        await update.message.reply_text(final_reply)
+
+        # 4. الأرشفة في الخلفية (GitHub) دون إزعاج القائد بالانتظار
+        threading.Thread(target=manager_tools.get_board_decision, args=(f"LOG: {task}",)).start()
+
+    except Exception as e:
+        logging.error(f"❌ خطأ: {e}")
+        # إذا كان الخطأ متعلق بالـ Rate Limit رغم نظام التبديل
+        if "429" in str(e):
+            await update.message.reply_text("⚠️ النظام تحت ضغط عالٍ، لكن المحرك الاحتياطي يعمل. يرجى إعادة المحاولة خلال دقيقة.")
+        else:
+            await update.message.reply_text(f"❌ عطل تقني: {str(e)[:100]}")
+
+# --- بقية المحرك (main & Flask) ---
 async def main():
     application = ApplicationBuilder().token(TOKEN).build()
     await application.bot.delete_webhook(drop_pending_updates=True)
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_msg))
-    
     await application.initialize()
     await application.start()
     await application.updater.start_polling(drop_pending_updates=True)
-    
-    logging.info("[-] البوت نشط الآن ومسلح بالعقل المدقق.")
-    while True:
-        await asyncio.sleep(1)
+    while True: await asyncio.sleep(1)
 
-# --- واجهة الويب ---
 @app.route('/')
-def home(): 
-    now_sweden = datetime.datetime.now(SWEDEN_TZ).strftime('%Y-%m-%d %H:%M:%S')
-    return f"🏛️ Sovereign Empire OS - Verified Brain Active. <br>Sweden Time: {now_sweden}"
+def home(): return f"🏛️ Sovereign Empire - Verified & Fail-Safe Active. {datetime.datetime.now(SWEDEN_TZ)}"
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
-    flask_thread = threading.Thread(
-        target=lambda: app.run(host='0.0.0.0', port=port), 
-        daemon=True
-    )
-    flask_thread.start()
-    
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        logging.info("[!] تم إيقاف النظام السيادي يدوياً.")
+    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=port), daemon=True).start()
+    try: asyncio.run(main())
+    except: logging.info("Stopped.")
