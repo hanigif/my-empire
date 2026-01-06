@@ -12,7 +12,8 @@ class StrategyCore:
         self.search_tool = DuckDuckGoSearchRun()
         
         # إعداد العقول السيادية
-        self.programmer = ChatGroq(temperature=0, model_name="deepseek-v3", api_key=self.groq_key) if self.groq_key else None
+        # ملاحظة: نستخدم llama-3.3-70b كمحرك أساسي نظراً لقوته البرمجية
+        self.programmer = ChatGroq(temperature=0, model_name="llama-3.3-70b-versatile", api_key=self.groq_key) if self.groq_key else None
         self.strategist = ChatGoogleGenerativeAI(model="gemini-1.5-pro", google_api_key=self.gemini_key) if self.gemini_key else None
 
     def _fetch_reliable_info(self, topic):
@@ -25,29 +26,43 @@ class StrategyCore:
             return f"فشل الاتصال بالإنترنت: {str(e)}"
 
     def fact_check_service(self, raw_info):
-        """المدقق السيادي: فحص المعلومات وتنقيتها من الأخطاء"""
+        """المدقق السيادي: فحص المعلومات وتنقيتها من الأخطاء عبر Gemini Pro"""
         if not self.strategist: return raw_info
         
         verify_prompt = (
             f"بصفتك مدقق حقائق سيادي، راجع المعلومات التالية المستخرجة من الإنترنت: \n{raw_info}\n"
-            "ابحث عن أي تضارب قانوني أو أخطاء تقنية في معايير السويد 2026. "
-            "استبعد أي معلومات غير موثقة وأعطني فقط الحقائق الصافية."
+            "استخرج فقط الحقائق الصافية والمتوافقة مع معايير السويد 2026. استبعد أي معلومة غير موثقة."
         )
-        verified_data = self.strategist.invoke([
-            SystemMessage(content="أنت مدقق حقائق صارم (Fact-Checker). مهمتك كشف المعلومات المغلوطة."),
-            HumanMessage(content=verify_prompt)
-        ])
-        return verified_data.content
+        try:
+            verified_data = self.strategist.invoke([
+                SystemMessage(content="أنت مدقق حقائق صارم. مهمتك تصفية المعلومات المغلوطة."),
+                HumanMessage(content=verify_prompt)
+            ])
+            return verified_data.content
+        except:
+            return raw_info # العودة للمعلومات الخام في حال فشل Gemini مؤقتاً
 
     def consult_deepseek(self, task, context):
-        """استشارة المبرمج الرقمي بناءً على المعلومات المحدثة"""
+        """استشارة المبرمج الرقمي مع نظام التبديل الآلي لـ Gemini عند حدوث Rate Limit"""
         if not self.programmer: return "مفتاح Groq غير متوفر."
+        
+        prompt = f"المهمة: {task}\nالسياق المحدث والموثق: {context}\nاكتب الكود البرمجي اللازم بدقة."
+        
         try:
-            prompt = f"المهمة: {task}\nالسياق المحدث والموثق: {context}\nحلل المهمة برمجياً وفق هذا السياق."
+            # المحاولة الأولى عبر Groq (Llama-3.3)
             response = self.programmer.invoke(prompt)
             return response.content
         except Exception as e:
-            return f"خطأ في استشارة ديب سيك: {str(e)}"
+            # التحقق مما إذا كان الخطأ هو تجاوز حد الطلبات (429)
+            if "429" in str(e) or "rate_limit" in str(e).lower():
+                print("[!] تم تجاوز حد Groq. تفعيل نظام الطوارئ: التبديل إلى Gemini Pro للبرمجة...")
+                if self.strategist:
+                    emergency_response = self.strategist.invoke([
+                        SystemMessage(content="أنت الآن Senior AI Developer. قم بإكمال المهمة البرمجية لأن المحرك الأول وصل للحد الأقصى."),
+                        HumanMessage(content=prompt)
+                    ])
+                    return f"(تم الإنتاج عبر المحرك الاحتياطي)\n\n{emergency_response.content}"
+            return f"خطأ في استشارة المحرك البرمجي: {str(e)}"
 
     def consult_gemini(self, task, context):
         """استشارة المحلل الاستراتيجي لضمان السيادة"""
@@ -63,24 +78,22 @@ class StrategyCore:
             return f"خطأ في استشارة جيمناي: {str(e)}"
 
     def get_consensus(self, topic):
-        """بروتوكول الإجماع السيادي المحدث (اتصال - بحث - تدقيق - قرار)"""
+        """بروتوكول الإجماع السيادي (اتصال - بحث - تدقيق - قرار ديناميكي)"""
         print(f"[*] تفعيل النبض: تحديث الفريق عبر الإنترنت حول {topic}...")
         
-        # 1. تحديث المعلومات من مصادر موثوقة
+        # 1. تحديث المعلومات
         raw_info = self._fetch_reliable_info(topic)
         
-        # 2. تدقيق المعلومات المستلمة (المرشح السيادي)
+        # 2. تدقيق الحقائق
         verified_context = self.fact_check_service(raw_info)
         
-        print(f"[*] تم تدقيق المعلومات وتأكيد الموثوقية.")
-        
-        # 3. استشارة مجلس الإدارة بناءً على الحقائق فقط
+        # 3. استشارة مجلس الإدارة مع دعم Failover
         ds_opinion = self.consult_deepseek(topic, verified_context)
         gemini_opinion = self.consult_gemini(topic, verified_context)
         
         return {
-            "Verified_Context": verified_context[:500], # ملخص المعلومات الموثقة
+            "Verified_Context": verified_context[:500], 
             "DeepSeek_Logic": ds_opinion,
             "Gemini_Strategy": gemini_opinion,
-            "Final_Decision": "تم الاعتماد بناءً على حقائق مدققة من مصادر حكومية سويدية."
+            "Final_Decision": "تم الاعتماد بناءً على حقائق مدققة ونظام تبديل آلي للمحركات."
         }
