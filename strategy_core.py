@@ -6,79 +6,93 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 class StrategyCore:
     def __init__(self):
-        # سحب المفاتيح من الخزنة الرقمية
+        # سحب المفاتيح من الخزنة
         self.groq_key = os.getenv("GROQ_API_KEY")
         self.gemini_key = os.getenv("GEMINI_API_KEY")
         self.search_tool = DuckDuckGoSearchRun()
         
-        # 1. المبرمج الرقمي (Llama 3.3 عبر Groq) - للأكواد المعقدة
+        # إعداد المحركات مع فحص التوفر
         self.programmer = ChatGroq(
             temperature=0, 
             model_name="llama-3.3-70b-versatile", 
             api_key=self.groq_key
         ) if self.groq_key else None
         
-        # 2. المحامي والمحلل الاستراتيجي (Gemini 1.5 Pro) - للتدقيق والقانون السويدي
         self.legal_guardian = ChatGoogleGenerativeAI(
             model="gemini-1.5-pro", 
             google_api_key=self.gemini_key
         ) if self.gemini_key else None
 
-    def _fetch_live_laws(self, topic):
-        """البحث الحي عن القوانين السويدية 2026 (الهدف رقم 3)"""
-        search_query = f"{topic} Swedish healthcare data law 2026 site:socialstyrelsen.se OR site:gov.se"
+    def _fetch_reliable_info(self, topic):
+        """البحث عن معلومات من مصادر سويدية موثوقة فقط 2026 (الهدف رقم 3)"""
+        search_query = f"{topic} site:gov.se OR site:socialstyrelsen.se OR site:riksdagen.se 2026"
         try:
             return self.search_tool.run(search_query)
         except Exception as e:
-            return f"فشل البحث المباشر، الاعتماد على المعايير المحفوظة. الخطأ: {e}"
+            return f"فشل الاتصال بالإنترنت: {str(e)}"
 
-    def get_consensus(self, task):
-        """بروتوكول الإجماع السيادي: بحث -> برمجة -> تدقيق قانوني -> قرار"""
-        
-        # المرحلة 1: جمع البيانات القانونية الحية
-        raw_context = self._fetch_live_laws(task)
-
-        # المرحلة 2: توليد الحل التقني (مع نظام التبديل الآلي في حال تعطل Groq)
-        initial_logic = ""
+    def fact_check_service(self, raw_info):
+        """المدقق السيادي: فحص المعلومات وتنقيتها من الأخطاء عبر Gemini Pro"""
+        if not self.legal_guardian: return raw_info
+        verify_prompt = (
+            f"بصفتك مدقق حقائق سيادي، راجع المعلومات التالية: \n{raw_info}\n"
+            "استخرج فقط الحقائق المتوافقة مع معايير السويد 2026 واستبعد أي معلومة غير موثقة."
+        )
         try:
-            # المحاولة عبر المبرمج الأساسي (Groq)
-            prompt = f"المهمة: {task}\nالسياق القانوني المكتشف: {raw_context}\nصمم الحل البرمجي المتوافق."
-            initial_logic = self.programmer.invoke(prompt).content
+            verified_data = self.legal_guardian.invoke([
+                SystemMessage(content="أنت مدقق حقائق صارم. مهمتك تصفية المعلومات المغلوطة."),
+                HumanMessage(content=verify_prompt)
+            ])
+            return verified_data.content
+        except:
+            return raw_info
+
+    def consult_deepseek(self, task, context):
+        """استشارة المبرمج مع نظام التبديل الآلي (Failover) عند حدوث Rate Limit"""
+        prompt = f"المهمة: {task}\nالسياق المحدث: {context}\nاكتب الكود البرمجي اللازم بدقة."
+        try:
+            # المحاولة الأولى عبر Groq
+            response = self.programmer.invoke(prompt)
+            return response.content
         except Exception as e:
-            # التبديل الآلي للمحرك الاحتياطي (Gemini) في حال حدوث Rate Limit (429)
             if "429" in str(e) or "rate_limit" in str(e).lower():
-                emergency_prompt = f"إشعار طوارئ: المحرك الأول متوقف. قم بدور المبرمج والمحلل للمهمة: {task}\nالسياق: {raw_context}"
-                initial_logic = self.legal_guardian.invoke(emergency_prompt).content
-            else:
-                initial_logic = f"خطأ تقني في التوليد: {e}"
+                # التبديل للطوارئ
+                emergency_response = self.legal_guardian.invoke([
+                    SystemMessage(content="أنت الآن Senior AI Developer. قم بإكمال المهمة البرمجية لأن المحرك الأول متوقف."),
+                    HumanMessage(content=prompt)
+                ])
+                return f"(تم الإنتاج عبر المحرك الاحتياطي)\n\n{emergency_response.content}"
+            return f"خطأ في الإنتاج: {str(e)}"
 
-        # المرحلة 3: مراجعة المحامي السويدي (VETO POWER) - إلزامية
+    def get_consensus(self, topic):
+        """بروتوكول الإجماع السيادي الكامل (بحث - تدقيق - برمجة - فيتو قانوني)"""
+        # 1. تحديث المعلومات من الإنترنت
+        raw_info = self._fetch_reliable_info(topic)
+        
+        # 2. تدقيق الحقائق
+        verified_context = self.fact_check_service(raw_info)
+        
+        # 3. توليد الكود التقني
+        ds_opinion = self.consult_deepseek(topic, verified_context)
+        
+        # 4. مراجعة المحامي السويدي (VETO POWER)
         legal_review_prompt = f"""
-        بصفتك المحامي الرسمي وخبير الامتثال السويدي لعام 2026:
-        المهمة المطلوبة: {task}
-        الحل التقني المقترح: {initial_logic}
-        
-        المطلوب منك:
-        1. إذا كان الحل يخالف أي قانون سويدي أو معايير Socialstyrelsen، ابدأ ردك بكلمة 'REJECTED' فوراً مع ذكر السبب.
-        2. إذا كان متوافقاً تماماً، ابدأ بكلمة 'APPROVED' مع توضيح المند الرقابي الذي يدعم الموافقة.
+        بصفتك المحامي الرسمي، راجع المهمة: {topic} والكود: {ds_opinion}
+        هل يوافق معايير Socialstyrelsen و GDPR السويدية لعام 2026؟
+        - ابدأ بـ 'REJECTED' إذا كان هناك أي خطر قانوني.
+        - ابدأ بـ 'APPROVED' إذا كان آمناً.
         """
-        
-        try:
-            legal_decision = self.legal_guardian.invoke([
-                SystemMessage(content="أنت المحامي السيادي والمستشار القانوني الأول للشركة في السويد."),
-                HumanMessage(content=legal_review_prompt)
-            ]).content
-        except Exception as e:
-            legal_decision = f"REJECTED: تعذر الحصول على موافقة المحامي بسبب عطل في محرك التدقيق: {e}"
+        legal_decision = self.legal_guardian.invoke([
+            SystemMessage(content="أنت المحامي السيادي والمستشار القانوني في السويد."),
+            HumanMessage(content=legal_review_prompt)
+        ]).content
 
-        # المرحلة 4: تفعيل نظام الفيتو (الذي طلبه القائد)
+        # تفعيل الفيتو
         if "REJECTED" in legal_decision.upper():
-            # إطلاق الاستثناء الذي سيلتقطه app.py لإرسال التنبيه لتلغرام
-            raise Exception(f"VETO_LEGAL: المحامي رفض الإجراء. التفاصيل: {legal_decision}")
+            raise Exception(f"VETO_LEGAL: {legal_decision}")
 
-        # المرحلة 5: النتيجة النهائية في حال الموافقة
         return {
             "Verified_Context": legal_decision,
-            "DeepSeek_Logic": initial_logic,
+            "DeepSeek_Logic": ds_opinion,
             "Status": "APPROVED"
         }
