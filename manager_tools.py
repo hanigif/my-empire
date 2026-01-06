@@ -2,6 +2,9 @@ import os
 import json
 import datetime
 import pytz
+import threading
+import time
+import requests
 from github import Github 
 from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -34,6 +37,22 @@ except Exception:
     llm_gemini = llm_backup 
 
 search_tool = DuckDuckGoSearchRun()
+
+# --- [إضافة] وحدة النبض الذكي (Keep-Alive Pulse) لضمان عمل Render 24/7 ---
+def keep_alive_pulse():
+    """تمنع الخادم من النوم بإرسال إشارة لنفسه كل 10 دقائق"""
+    APP_URL = "https://my-empire.onrender.com" 
+    while True:
+        try:
+            # محاولة مناداة الرابط الأساسي
+            requests.get(APP_URL, timeout=10)
+        except Exception:
+            pass
+        time.sleep(600) # نبضة كل 10 دقائق
+
+# تشغيل النبض في الخلفية (Thread)
+pulse_thread = threading.Thread(target=keep_alive_pulse, daemon=True)
+pulse_thread.start()
 
 def export_to_github(filename, content, commit_message):
     try:
@@ -100,7 +119,6 @@ def get_board_decision(task):
 
         # دورة التطوير الذاتي (3 دورات تحسين)
         for i in range(1, 4):
-            # الـ CTO ينتج أو يحسن الكود بناءً على تقرير الاختبار السابق
             cto_prompt = (f"الدورة {i}: بناءً على معايير السويد: {standards}. "
                           f"المهمة: {task}. التاريخ والملاحظات: {iteration_history}. "
                           f"اكتب كود (logic.py) محسن، دقيق طبياً، ومؤمن بالكامل.")
@@ -109,36 +127,26 @@ def get_board_decision(task):
                 HumanMessage(content=cto_prompt)
             ])
             
-            # إنتاج الواجهة
             ui_prompt = f"صمم واجهة Streamlit احترافية لهذا المنطق المطور: {current_logic}"
             current_ui = safe_invoke(llm_backup, [
                 SystemMessage(content="أنت Frontend Developer طبي متخصص."),
                 HumanMessage(content=ui_prompt)
             ])
 
-            # قسم الاختبار يراجع نتاج الدورة
             audit_report = get_auditor_review(current_logic, current_ui, task)
             
-            # إذا كان الكود ممتازاً طبياً ولا يحتاج تعديل جوهري، نخرج من الدورة
+            # إذا اجتاز الاختبار في أي دورة بعد الأولى، نعتمد النتيجة
             if "STOP_PRODUCTION" not in audit_report:
                 break
             
-            # تحديث تاريخ الإخفاقات للدورة التالية ليتعلم النظام من خطئه
             iteration_history = f"فشل في الدورة {i}: {audit_report}"
 
-        # التحقق النهائي من Kill Switch
         if "STOP_PRODUCTION" in audit_report:
-            return (f"🛑 **توقف التطوير الذاتي - لم نصل للمعايير المطلوبة**\n\n"
-                    f"حاول النظام تطوير نفسه 3 مرات وفشل في اجتياز اختبار الجودة الطبي:\n\n"
-                    f"{audit_report}\n\n"
-                    f"⚠️ تدخل القائد مطلوب لتعديل المتطلبات.")
+            return (f"🛑 **توقف التطوير الذاتي - لم نصل للمعايير**\n\n"
+                    f"المفتش رصد مخاطر طبية بعد 3 محاولات تحسين:\n\n{audit_report}")
 
-        # الـ COO: استراتيجية البيع المبنية على "جودة التطوير الذاتي"
-        co_prompt = f"صمم عرض بيع يركز على أن المنتج مر بـ 3 مراحل تحسين ذاتي ومطابق لمعايير: {standards}"
-        sales_strategy = safe_invoke(llm_gemini, [
-            SystemMessage(content="أنت COO خبير سوق."),
-            HumanMessage(content=co_prompt)
-        ])
+        co_prompt = f"صمم عرض بيع يركز على جودة التطوير الذاتي التكراري والمطابقة لـ {standards}"
+        sales_strategy = safe_invoke(llm_gemini, [SystemMessage(content="أنت COO خبير."), HumanMessage(content=co_prompt)])
         
         ts = datetime.datetime.now(SWEDEN_TZ).strftime("%H%M")
         code_fn, ui_fn, doc_fn = f"evolved_logic_{ts}.py", f"evolved_ui_{ts}.py", f"evolved_offer_{ts}.md"
@@ -152,8 +160,9 @@ def get_board_decision(task):
         git_3 = export_to_github(doc_fn, sales_strategy, f"Evolved Sales Strategy {ts}")
         
         return (f"🏛️ **تقرير التطوير الذاتي المعتمد ({ts})**\n\n"
-                f"🛡️ **حالة الأصول:** تم رفع النسخة الأكثر نضجاً بعد دورات التحسين.\n"
-                f"✅ **نتيجة الاختبار النهائي:**\n{audit_report[:500]}...")
+                f"🛡️ **الحالة:** المنتج جاهز ومر بـ {i} دورات تحسين.\n"
+                f"✅ **نبض النظام:** النبض الذكي يعمل لضمان تواجد 24/7.\n"
+                f"📋 **ملخص الاختبار:** {audit_report[:300]}...")
 
     except Exception as e:
-        return f"❌ فشل في محرك التطوير الذاتي: {str(e)}"
+        return f"❌ فشل في المحرك: {str(e)}"
