@@ -21,9 +21,10 @@ SWEDEN_TZ = pytz.timezone('Europe/Stockholm')
 KNOWLEDGE_BASE_DIR = "knowledge_base"
 PRODUCTION_DIR = "production_v1"
 
+# سجلات المراقبة العالمية لضمان الـ 24/7
 EMPIRE_START_TIME = datetime.datetime.now(SWEDEN_TZ)
 PULSE_COUNT = 0
-AUTO_PRODUCTION_COUNT = 0 # عداد الإنتاج الآلي الجديد
+AUTO_PRODUCTION_COUNT = 0 # عداد الإنتاج الآلي المدمج
 
 for folder in [KNOWLEDGE_BASE_DIR, PRODUCTION_DIR]:
     if not os.path.exists(folder):
@@ -43,8 +44,7 @@ except Exception:
 
 search_tool = DuckDuckGoSearchRun()
 
-# --- 3. الأنظمة الخلفية المستقلة (النبض والمصنع) ---
-
+# --- 3. نظام النبض والمصنع المستقل (Background Systems) ---
 def keep_alive_pulse():
     global PULSE_COUNT
     APP_URL = "https://my-empire.onrender.com" 
@@ -57,27 +57,26 @@ def keep_alive_pulse():
         time.sleep(600) # نبضة كل 10 دقائق
 
 def autonomous_factory_loop():
-    """محرك الإنتاج الآلي: يعمل كل 41 دقيقة لاستهلاك 35 طلب Gemini يومياً"""
+    """محرك الإنتاج الآلي المدمج: يعمل كل 41 دقيقة (35 طلب/يوم)"""
     global AUTO_PRODUCTION_COUNT
-    time.sleep(300) # انتظار 5 دقائق للاستقرار بعد التشغيل
+    time.sleep(120) # انتظار دقيقتين للاستقرار
     
-    # مهام تطويرية متنوعة للمصنع
     auto_tasks = [
-        "تحسين بروتوكولات الخصوصية السيادية لبيانات المرضى في السويد",
-        "تحديث منطق تشفير البيانات الطبية وفق معايير Patientdatalagen 2026",
-        "تطوير واجهة مستخدم آمنة لا تسمح بتسريب البيانات خارج الحدود السيادية",
-        "فحص وتحديث أنظمة الامتثال لعام 2026 تلقائياً"
+        "تحسين معايير Patientdatalagen 2026 في الكود السيادي",
+        "تطوير خوارزميات تحليل البيانات الصحية السويدية المشفرة",
+        "تأمين واجهات AI ضد تسريب بيانات الهوية الشخصية",
+        "تحديث بروتوكولات الامتثال لـ Socialstyrelsen"
     ]
     
     while True:
         task = random.choice(auto_tasks)
-        # إرسال الأمر للمحرك الرئيسي ببادئة تميزه كإنتاج آلي
-        get_board_decision(f"AUTO_TASK: {task}")
+        # استدعاء المحرك الرئيسي مباشرة
+        get_board_decision(f"AUTO_MODE: {task}")
         AUTO_PRODUCTION_COUNT += 1
-        # 2460 ثانية = 41 دقيقة (35 دورة في الـ 24 ساعة)
+        # 2460 ثانية = 41 دقيقة
         time.sleep(2460)
 
-# تشغيل الأنظمة في الخلفية
+# تشغيل الأنظمة الخلفية فوراً
 threading.Thread(target=keep_alive_pulse, daemon=True).start()
 threading.Thread(target=autonomous_factory_loop, daemon=True).start()
 
@@ -88,11 +87,10 @@ def export_to_github(filename, content, commit_message):
         g = Github(GITHUB_TOKEN)
         repo = g.get_repo(REPO_NAME)
         try:
-            # محاولة تحديث الملف المركزي (تجنب الفوضى)
+            # محاولة تحديث الملف المركزي بدلاً من إنشاء ملف جديد (لتقليل الفوضى)
             contents = repo.get_contents(filename)
             repo.update_file(contents.path, commit_message, content, contents.sha)
         except:
-            # إنشاء الملف إذا لم يكن موجوداً
             repo.create_file(filename, commit_message, content)
         return f"✅ تم التأمين: {filename}"
     except Exception as e:
@@ -102,6 +100,20 @@ def archive_and_save_production(role, filename, content):
     file_path = os.path.join(PRODUCTION_DIR, filename)
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(content)
+    archive_path = os.path.join(KNOWLEDGE_BASE_DIR, f"{role.lower()}_brain.json")
+    entry = {
+        "timestamp": datetime.datetime.now(SWEDEN_TZ).strftime("%Y-%m-%d %H:%M:%S"),
+        "product_file": filename,
+        "content_preview": content[:250] + "..."
+    }
+    data = []
+    if os.path.exists(archive_path):
+        with open(archive_path, "r", encoding="utf-8") as f:
+            try: data = json.load(f)
+            except: data = []
+    data.append(entry)
+    with open(archive_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
     return file_path
 
 def safe_invoke(llm, messages):
@@ -112,11 +124,11 @@ def safe_invoke(llm, messages):
 
 # --- 5. قسم الاختبار المستقل (Auditor) ---
 def get_auditor_review(logic, ui, task):
-    audit_prompt = (f"أنت مفتش جودة طبي مستقل. راجع كود المنطق: {logic} وكود الواجهة: {ui}. "
-                    f"للمهمة: {task}. ابحث عن: عدم مطابقة للمعايير السويدية 2026. "
-                    f"إذا وجدت خطأ حرجاً ابدأ بـ 'STOP_PRODUCTION'.")
+    audit_prompt = (f"أنت مفتش جودة طبي مستقل (QA Auditor). راجع كود المنطق: {logic} وكود الواجهة: {ui}. "
+                    f"للمهمة: {task}. ابحث عن: أخطاء طبية، عدم مطابقة للمعايير السويدية، ثغرات خصوصية. "
+                    f"إذا وجدت خطأ طبياً حرجاً، ابدأ ردك فوراً بكلمة 'STOP_PRODUCTION'.")
     return safe_invoke(llm_gemini, [
-        SystemMessage(content="أنت رئيس قسم الجودة المستقل."),
+        SystemMessage(content="أنت رئيس قسم الجودة المستقل. وظيفتك التدقيق الصارم."),
         HumanMessage(content=audit_prompt)
     ])
 
@@ -125,7 +137,7 @@ def get_board_decision(task):
     clean_task = task.strip().lower()
     status_keywords = ["حالة الإمبراطورية", "status", "report", "حالة الامبراطورية"]
 
-    # --- [المسار السريع للأوامر الإدارية] ---
+    # --- [المسار الإداري] ---
     if any(keyword in clean_task for keyword in status_keywords):
         uptime = datetime.datetime.now(SWEDEN_TZ) - EMPIRE_START_TIME
         days = uptime.days
@@ -137,39 +149,53 @@ def get_board_decision(task):
                 f"⏱️ **وقت التشغيل:** {days} يوم، {hours} ساعة، {minutes} دقيقة\n"
                 f"💓 **نبضات Keep-Alive:** {PULSE_COUNT}\n"
                 f"⚙️ **دورات الإنتاج الآلي:** {AUTO_PRODUCTION_COUNT}\n"
-                f"🛡️ **سياسة الاستهلاك:** 35 طلب/يوم (آمن)\n"
+                f"🛡️ **سياسة الاستهلاك:** 35 طلب/يوم (نشط)\n"
                 f"📅 **توقيت السويد:** {datetime.datetime.now(SWEDEN_TZ).strftime('%H:%M:%S')}\n"
-                f"✅ **حالة النظام:** Live (24/7)\n"
+                f"✅ **جاهزية المفتش:** نشط ومستعد للفحص\n"
                 f"━━━━━━━━━━━━━━━")
 
-    # --- [مسار دورة الإنتاج والتطوير الذاتي] ---
+    # --- [مسار الإنتاج] ---
     try:
-        search_query = f"Sweden AI medical software standards 2026 {task}"
+        search_query = f"Sweden AI medical software standards 2026 Patientdatalagen Socialstyrelsen {task}"
         standards = search_tool.run(search_query)
         
-        # دورة التطوير والتحسين (نظام الـ 3 دورات)
         current_logic = ""
         current_ui = ""
         audit_report = ""
         iteration_history = ""
 
         for i in range(1, 4):
+            cto_prompt = (f"الدورة {i}: معايير السويد: {standards}. المهمة: {task}. "
+                          f"تاريخ التحسين: {iteration_history}. اكتب كود logic.py سيادي.")
             current_logic = safe_invoke(llm_backup, [
-                SystemMessage(content="Senior Medical Architect"),
-                HumanMessage(content=f"Build logic for: {task}. Standards: {standards}. History: {iteration_history}")
+                SystemMessage(content="أنت Senior Medical Architect."),
+                HumanMessage(content=cto_prompt)
             ])
-            current_ui = safe_invoke(llm_backup, [SystemMessage(content="UI Specialist"), HumanMessage(content=f"UI for: {current_logic}")])
             
-            audit_report = get_auditor_review(current_logic, current_ui, task)
-            if "STOP_PRODUCTION" not in audit_report: break 
-            iteration_history = f"Attempt {i} failed: {audit_report}"
+            ui_prompt = f"صمم واجهة Streamlit لهذا الكود: {current_logic}"
+            current_ui = safe_invoke(llm_backup, [SystemMessage(content="أنت UI Specialist."), HumanMessage(content=ui_prompt)])
 
-        # رفع النتائج (تحديث الملفات المركزية لتجنب الفوضى)
-        ts = datetime.datetime.now(SWEDEN_TZ).strftime("%Y%m%d_%H%M")
-        export_to_github("Sovereign_Core_Logic.py", current_logic, f"Auto-Update {ts}")
-        export_to_github("Sovereign_UI.py", current_ui, f"Auto-Update UI {ts}")
+            audit_report = get_auditor_review(current_logic, current_ui, task)
+            if "STOP_PRODUCTION" not in audit_report: 
+                break 
+            iteration_history = f"فشل الدورة {i}: {audit_report}"
+
+        if "STOP_PRODUCTION" in audit_report:
+            return f"🛑 **إيقاف طارئ:** لم نتجاوز الجودة.\n{audit_report[:200]}"
+
+        co_prompt = f"صمم عرض بيع بناءً على جودة المنتج المطابق لـ {standards}"
+        sales_strategy = safe_invoke(llm_gemini, [SystemMessage(content="أنت COO خبير."), HumanMessage(content=co_prompt)])
         
-        return f"🏛️ **تمت دورة الإنتاج ({ts})**\n✅ الجودة: معتمدة\n🛡️ تم التحديث في GitHub."
+        # الأرشفة والرفع (نظام تحديث الملفات المركزية)
+        ts = datetime.datetime.now(SWEDEN_TZ).strftime("%H%M")
+        
+        archive_and_save_production("TECH_LOGIC", f"logic_{ts}.py", current_logic)
+        export_to_github("Sovereign_Core_Logic.py", current_logic, f"Auto-Update {ts}")
+        export_to_github("Sovereign_Market_Plan.md", sales_strategy, f"Market Update {ts}")
+        
+        return (f"🏛️ **تقرير الإنتاج ({ts})**\n"
+                f"✅ تم اجتياز الاختبار بعد {i} دورات.\n"
+                f"🛡️ تم تحديث الأصول المركزية في GitHub بنجاح.")
 
     except Exception as e:
-        return f"❌ خطأ حرج: {str(e)}"
+        return f"❌ خطأ حرج في المحرك: {str(e)}"
