@@ -12,7 +12,7 @@ class StrategyCore:
         self.gemini_key = os.getenv("GEMINI_API_KEY")
         self.search_tool = DuckDuckGoSearchRun()
         
-        # إعداد المحركات مع فحص التوفر الصارم لمنع خطأ NoneType
+        # إعداد المبرمج (Groq)
         try:
             self.programmer = ChatGroq(
                 temperature=0, 
@@ -23,9 +23,11 @@ class StrategyCore:
             logging.error(f"Error initializing Groq: {e}")
             self.programmer = None
             
+        # إعداد المحامي (Gemini) مع حل مشكلة الـ 404
         try:
+            # تم التغيير إلى gemini-1.5-flash لضمان التوفر المستمر وتجنب خطأ 404
             self.legal_guardian = ChatGoogleGenerativeAI(
-                model="gemini-1.5-pro", 
+                model="gemini-1.5-flash", 
                 google_api_key=self.gemini_key
             ) if self.gemini_key else None
         except Exception as e:
@@ -33,7 +35,7 @@ class StrategyCore:
             self.legal_guardian = None
 
     def _fetch_reliable_info(self, topic):
-        """البحث عن معلومات من مصادر سويدية موثوقة فقط 2026 (الهدف رقم 3)"""
+        """البحث عن معلومات من مصادر سويدية موثوقة فقط 2026"""
         search_query = f"{topic} site:gov.se OR site:socialstyrelsen.se OR site:riksdagen.se 2026"
         try:
             return self.search_tool.run(search_query)
@@ -41,35 +43,34 @@ class StrategyCore:
             return f"فشل الاتصال بالإنترنت: {str(e)}"
 
     def fact_check_service(self, raw_info):
-        """المدقق السيادي: فحص المعلومات وتنقيتها من الأخطاء عبر Gemini Pro"""
+        """المدقق السيادي: فحص المعلومات وتنقيتها"""
         if not self.legal_guardian: 
-            return "تحذير: المحرك القانوني غير متصل. البيانات غير مدققة."
+            return "تحذير: المحرك القانوني غير متصل."
         
         verify_prompt = (
             f"بصفتك مدقق حقائق سيادي، راجع المعلومات التالية: \n{raw_info}\n"
-            "استخرج فقط الحقائق المتوافقة مع معايير السويد 2026 واستبعد أي معلومة غير موثقة."
+            "استخرج فقط الحقائق المتوافقة مع معايير السويد 2026."
         )
         try:
             verified_data = self.legal_guardian.invoke([
-                SystemMessage(content="أنت مدقق حقائق صارم. مهمتك تصفية المعلومات المغلوطة."),
+                SystemMessage(content="أنت مدقق حقائق صارم."),
                 HumanMessage(content=verify_prompt)
             ])
             return verified_data.content
-        except:
+        except Exception as e:
+            logging.error(f"Fact check error: {e}")
             return raw_info
 
     def consult_deepseek(self, task, context):
-        """استشارة المبرمج مع نظام التبديل الآلي (Failover) عند حدوث Rate Limit"""
-        prompt = f"المهمة: {task}\nالسياق المحدث: {context}\nاكتب الكود البرمجي اللازم بدقة."
+        """استشارة المبرمج مع نظام التبديل الآلي"""
+        prompt = f"المهمة: {task}\nالسياق: {context}\nاكتب الكود البرمجي."
         
-        # التحقق من وجود المحرك أولاً لمنع 'NoneType' object has no attribute 'invoke'
         if not self.programmer:
             if self.legal_guardian:
                 return self._emergency_programming(prompt)
-            return "خطأ: جميع المحركات البرمجية غير متوفرة."
+            return "خطأ: المحركات غير متوفرة."
 
         try:
-            # المحاولة الأولى عبر Groq
             response = self.programmer.invoke(prompt)
             return response.content
         except Exception as e:
@@ -79,48 +80,26 @@ class StrategyCore:
 
     def _emergency_programming(self, prompt):
         """وظيفة الطوارئ للتبديل إلى Gemini"""
-        emergency_response = self.legal_guardian.invoke([
-            SystemMessage(content="أنت الآن Senior AI Developer. قم بإكمال المهمة البرمجية لأن المحرك الأول متوقف."),
-            HumanMessage(content=prompt)
-        ])
-        return f"(تم الإنتاج عبر المحرك الاحتياطي)\n\n{emergency_response.content}"
+        try:
+            emergency_response = self.legal_guardian.invoke([
+                SystemMessage(content="أنت الآن Senior AI Developer."),
+                HumanMessage(content=prompt)
+            ])
+            return f"(تم الإنتاج عبر المحرك الاحتياطي)\n\n{emergency_response.content}"
+        except Exception as e:
+            return f"فشل محرك الطوارئ أيضاً: {e}"
 
     def get_consensus(self, topic):
-        """بروتوكول الإجماع السيادي الكامل (بحث - تدقيق - برمجة - فيتو قانوني)"""
+        """بروتوكول الإجماع السيادي الكامل"""
         
-        # التأكد من عمل المحركات الأساسية قبل البدء
         if not self.legal_guardian:
-            raise Exception("VETO_LEGAL: المحرك القانوني (Gemini) غير مفعل. يرجى التأكد من مفتاح الـ API.")
+            raise Exception("VETO_LEGAL: المحرك القانوني غير مفعل. تأكد من GEMINI_API_KEY.")
 
-        # 1. تحديث المعلومات من الإنترنت
+        # 1. بحث وتدقيق
         raw_info = self._fetch_reliable_info(topic)
-        
-        # 2. تدقيق الحقائق
         verified_context = self.fact_check_service(raw_info)
         
-        # 3. توليد الكود التقني
+        # 2. برمجة
         ds_opinion = self.consult_deepseek(topic, verified_context)
         
-        # 4. مراجعة المحامي السويدي (VETO POWER)
-        legal_review_prompt = f"""
-        بصفتك المحامي الرسمي، راجع المهمة: {topic} والكود: {ds_opinion}
-        هل يوافق معايير Socialstyrelsen و GDPR السويدية لعام 2026؟
-        - ابدأ بـ 'REJECTED' إذا كان هناك أي خطر قانوني.
-        - ابدأ بـ 'APPROVED' إذا كان آمناً.
-        """
-        
-        legal_decision_resp = self.legal_guardian.invoke([
-            SystemMessage(content="أنت المحامي السيادي والمستشار القانوني في السويد."),
-            HumanMessage(content=legal_review_prompt)
-        ])
-        legal_decision = legal_decision_resp.content
-
-        # تفعيل الفيتو
-        if "REJECTED" in legal_decision.upper():
-            raise Exception(f"VETO_LEGAL: {legal_decision}")
-
-        return {
-            "Verified_Context": legal_decision,
-            "DeepSeek_Logic": ds_opinion,
-            "Status": "APPROVED"
-        }
+        # 3.
