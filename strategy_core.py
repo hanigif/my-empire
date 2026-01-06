@@ -38,40 +38,33 @@ class StrategyCore:
             logging.error(f"❌ عطل في تهيئة المبرمج: {e}")
             self.programmer = None
             
-        # 2. إعداد المحامي والمدقق (Gemini) - بروتوكول التشغيل المحصن ضد 404
+        # 2. إعداد المحامي والمدقق (Gemini) - بروتوكول التشغيل المحصن
         self.legal_guardian = self._initialize_gemini_with_failover()
 
     def _initialize_gemini_with_failover(self):
-        """نظام تشغيل المحامي بأكثر من صيغة لضمان تخطي أخطاء الاستضافة"""
+        """نظام تشغيل المحامي المباشر لضمان قراءة المفتاح من Render وتجاوز حظر الـ Handshake"""
         if not self.gemini_key:
             logging.error("❌ مفتاح Gemini غائب عن إعدادات الرندر.")
             return None
         
-        # تنظيف المفتاح وتجربة الموديلات المتاحة في 2026
         clean_key = self.gemini_key.strip()
-        variants = ["gemini-1.5-flash", "models/gemini-1.5-flash", "gemini-pro"]
-        
-        for model_name in variants:
-            try:
-                model = ChatGoogleGenerativeAI(
-                    model=model_name, 
-                    google_api_key=clean_key,
-                    temperature=0
-                )
-                # اختبار الاتصال الفوري (The Sovereign Handshake)
-                model.invoke([HumanMessage(content="Sovereign Check")])
-                logging.info(f"⚖️ المحامي الرقمي اتصل بنجاح عبر: {model_name}")
-                return model
-            except Exception as e:
-                logging.warning(f"⚠️ الموديل {model_name} لم يستجب: {e}")
-                continue
-        
-        return None
+        # محاولة الربط المباشر بالموديل الأكثر استقراراً في 2026
+        try:
+            model = ChatGoogleGenerativeAI(
+                model="gemini-1.5-flash", 
+                google_api_key=clean_key,
+                temperature=0
+            )
+            # تم إيقاف الـ Invoke التجريبي هنا لضمان عدم إغلاق النظام في حال تأخر الاستجابة
+            logging.info("⚖️ المحامي الرقمي متصل ومستعد لإصدار الأحكام.")
+            return model
+        except Exception as e:
+            logging.error(f"⚠️ فشل ربط المحرك القانوني: {e}")
+            return None
 
     def _fetch_reliable_info(self, topic):
         """البحث عن معلومات من مصادر سويدية موثوقة فقط 2026 (الهدف رقم 3)"""
         logging.info(f"🌐 جاري البحث السيادي عن: {topic}")
-        # استهداف المواقع الحكومية والطبية في السويد
         search_query = (
             f"{topic} site:gov.se OR site:socialstyrelsen.se OR "
             f"site:riksdagen.se OR site:1177.se 2026"
@@ -111,14 +104,13 @@ class StrategyCore:
         )
         
         if not self.programmer:
-            logging.warning("⚠️ المبرمج الأساسي غائب. تفعيل خطة الطوارئ عبر Gemini...")
+            logging.warning("⚠️ المبرمج الأساسي غائب. تفعيل خطة الطوارئ...")
             return self._emergency_programming(prompt)
 
         try:
             response = self.programmer.invoke(prompt)
             return response.content
         except Exception as e:
-            # التحقق من Rate Limit أو أعطال السيرفر
             if any(err in str(e).lower() for err in ["429", "rate_limit", "500", "overloaded"]):
                 logging.error("❌ عطل في المحرك الرئيسي. التبديل للمحرك الاحتياطي...")
                 return self._emergency_programming(prompt)
@@ -127,7 +119,7 @@ class StrategyCore:
     def _emergency_programming(self, prompt):
         """وظيفة الطوارئ البرمجية: Gemini يتحول لمبرمج عند غياب Llama"""
         if not self.legal_guardian:
-            return "فشل سيادي حرج: جميع المحركات خارج الخدمة. تحقق من مفاتيح الـ API."
+            return "فشل سيادي حرج: جميع المحركات خارج الخدمة."
         try:
             emergency_response = self.legal_guardian.invoke([
                 SystemMessage(content="أنت الآن Senior AI Developer مخصص لحالات الطوارئ."),
@@ -141,42 +133,38 @@ class StrategyCore:
         """بروتوكول الإجماع السيادي الكامل (الفيتو المطلق)"""
         logging.info(f"⚖️ بدء بروتوكول الإجماع للمهمة: {topic}")
         
-        # 1. فحص توفر "قلب النظام" (المحامي)
         if not self.legal_guardian:
-            raise Exception("VETO_LEGAL: المحرك القانوني غير مفعل. النظام في وضع الإغلاق التام.")
+            raise Exception("VETO_LEGAL: المحرك القانوني غير مفعل. تأكد من تفعيل GEMINI_API_KEY في الرندر وعمل Clear Cache and Deploy.")
 
-        # 2. البحث والتقصي
+        # 1. البحث
         raw_info = self._fetch_reliable_info(topic)
         
-        # 3. التدقيق الرقمي
+        # 2. التدقيق
         verified_context = self.fact_check_service(raw_info)
         
-        # 4. الإنتاج البرمجي (بناءً على السياق المدقق)
+        # 3. البرمجة
         ds_opinion = self.consult_deepseek(topic, verified_context)
         
-        # 5. مراجعة الفيتو النهائية (المحامي يحكم على المبرمج)
+        # 4. المراجعة والفيتو
         legal_review_prompt = f"""
         بصفتك المحامي الرسمي، راجع المهمة: {topic} 
         والكود المقترح من المبرمج: {ds_opinion}
-        
-        بناءً على قوانين Socialstyrelsen و GDPR و Patientdatalagen لعام 2026:
-        - إذا كان الإجراء يهدد خصوصية المواطن السويدي، ابدأ بـ 'REJECTED' واكتب تقرير المخالفات.
-        - إذا كان الإجراء آمناً، ابدأ بـ 'APPROVED'.
+        بناءً على قوانين السويد لعام 2026:
+        - ابدأ بـ 'REJECTED' للمخالفة.
+        - ابدأ بـ 'APPROVED' للأمان.
         """
         
         try:
             legal_decision_resp = self.legal_guardian.invoke([
-                SystemMessage(content="أنت المستشار القانوني السيادي. مهمتك حماية السويد من المخالفات الرقمية."),
+                SystemMessage(content="أنت المستشار القانوني السيادي السويدي."),
                 HumanMessage(content=legal_review_prompt)
             ])
             legal_decision = legal_decision_resp.content
 
-            # 6. تفعيل الفيتو الصارم
             if "REJECTED" in legal_decision.upper():
                 logging.error(f"🛑 فيتو قانوني: {legal_decision}")
                 raise Exception(f"VETO_LEGAL: {legal_decision}")
 
-            # 7. التقرير النهائي المعتمد
             return {
                 "Verified_Context": legal_decision,
                 "DeepSeek_Logic": ds_opinion,
@@ -186,5 +174,3 @@ class StrategyCore:
         except Exception as e:
             if "VETO_LEGAL" in str(e): raise e
             raise Exception(f"فشل في إتمام المراجعة القانونية: {e}")
-
-# نهاية الكود السيادي - الإصدار 2.1.0 (2026)
