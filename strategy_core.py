@@ -38,29 +38,38 @@ class StrategyCore:
             logging.error(f"❌ عطل في تهيئة المبرمج: {e}")
             self.programmer = None
             
-        # 2. إعداد المحامي والمدقق (Gemini) - بروتوكول التشغيل المحصن
+        # 2. إعداد المحامي والمدقق (Gemini) - بروتوكول التشغيل المحصن ضد 404
         self.legal_guardian = self._initialize_gemini_with_failover()
 
     def _initialize_gemini_with_failover(self):
-        """نظام تشغيل المحامي المباشر لضمان قراءة المفتاح من Render وتجاوز حظر الـ Handshake"""
+        """نظام تشغيل المحامي بأكثر من مسار لضمان تخطي خطأ 404 NOT FOUND"""
         if not self.gemini_key:
             logging.error("❌ مفتاح Gemini غائب عن إعدادات الرندر.")
             return None
         
         clean_key = self.gemini_key.strip()
-        # محاولة الربط المباشر بالموديل الأكثر استقراراً في 2026
-        try:
-            model = ChatGoogleGenerativeAI(
-                model="gemini-1.5-flash", 
-                google_api_key=clean_key,
-                temperature=0
-            )
-            # تم إيقاف الـ Invoke التجريبي هنا لضمان عدم إغلاق النظام في حال تأخر الاستجابة
-            logging.info("⚖️ المحامي الرقمي متصل ومستعد لإصدار الأحكام.")
-            return model
-        except Exception as e:
-            logging.error(f"⚠️ فشل ربط المحرك القانوني: {e}")
-            return None
+        # تجربة المسارات الثلاثة الممكنة للموديل (حل جذري لمشكلة الـ 404)
+        variants = ["models/gemini-1.5-flash", "gemini-1.5-flash", "models/gemini-pro"]
+        
+        for model_path in variants:
+            try:
+                model = ChatGoogleGenerativeAI(
+                    model=model_path, 
+                    google_api_key=clean_key,
+                    temperature=0
+                )
+                # اختبار الاتصال الفعلي للتأكد من وجود الموديل في هذا المسار
+                model.invoke([HumanMessage(content="test")])
+                logging.info(f"⚖️ المحامي الرقمي اتصل بنجاح عبر المسار: {model_path}")
+                return model
+            except Exception as e:
+                if "404" in str(e):
+                    logging.warning(f"⚠️ المسار {model_path} غير موجود (404)، جاري تجربة البديل...")
+                    continue
+                logging.error(f"❌ خطأ في {model_path}: {e}")
+                continue
+        
+        return None
 
     def _fetch_reliable_info(self, topic):
         """البحث عن معلومات من مصادر سويدية موثوقة فقط 2026 (الهدف رقم 3)"""
@@ -174,3 +183,5 @@ class StrategyCore:
         except Exception as e:
             if "VETO_LEGAL" in str(e): raise e
             raise Exception(f"فشل في إتمام المراجعة القانونية: {e}")
+
+# نهاية الكود السيادي المحدث - الإصدار 2.1.1 (2026)
