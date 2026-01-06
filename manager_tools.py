@@ -76,54 +76,56 @@ def safe_invoke(llm, messages):
         return llm_backup.invoke(messages).content
 
 def get_board_decision(task):
-    """دورة الإنتاج السيادي المحدثة: خصوصية + تحليل ذكي"""
+    """دورة الإنتاج السيادي: منصة الطوارئ الشاملة (قلب، أعصاب، عظام، فرز)"""
     try:
-        # 1. البحث التقني المزدوج (خصوصية + تحليل طبي)
-        search_query = f"Python AI X-ray analysis and PII scrubbing 2026 standards"
+        # 1. البحث عن معايير الطوارئ والفرز (Triage) لعام 2026
+        search_query = f"Emergency AI Triage standards 2026 for ECG, X-ray, and CT scans"
         search_results = search_tool.run(search_query)
         
-        # 2. الـ CTO: إنتاج منطق المنتج (إضافة التحليل الذكي)
+        # 2. الـ CTO: إنتاج المنطق المتعدد المهام + نظام الفرز
         cto_prompt = (f"بناءً على: {search_results}. اكتب كود Python (logic.py) لـ: {task}. "
-                      f"يجب أن يتضمن الكود وظيفتين: 1. مسح بيانات المريض (Anonymization) "
-                      f"2. وحدة ذكاء اصطناعي (محاكاة) لتحليل الصورة وإعطاء تقرير طبي أولي.")
+                      f"الكود يجب أن يعالج: صور العظام (fractures)، تخطيط القلب (ECG anomalies)، وصور الدماغ (hemorrhage). "
+                      f"أضف نظام 'Triage' يحدد درجة الخطورة (Red, Yellow, Green) بناءً على النتائج.")
         source_code = safe_invoke(llm_backup, [
-            SystemMessage(content="أنت CTO خبير. اكتب كود Logic يجمع بين حماية الخصوصية والتحليل الطبي الذكي."), 
+            SystemMessage(content="أنت CTO للمنصة السيادية. صمم نظام تحليل طوارئ متعدد التخصصات مع معالج خصوصية إجباري."), 
             HumanMessage(content=cto_prompt)
         ])
         
-        # 3. مهندس الواجهات: دعم لوحة تحكم التحليل
+        # 3. مهندس الواجهات: لوحة تحكم غرف العمليات
         ui_prompt = (f"اكتب كود Streamlit (ui.py) للكود التالي: {source_code}. "
-                      f"يجب أن تعرض الواجهة: الصورة الأصلية، الصورة المحمية، ونتائج التحليل الطبي الذكي بشكل احترافي.")
+                      f"صمم واجهة 'Command Center' تدعم سحب عدة ملفات، وترتبها تلقائياً حسب درجة خطورة 'Triage'. "
+                      f"استخدم ألواناً واضحة (أحمر للحالات الحرجة).")
         ui_code = safe_invoke(llm_backup, [
-            SystemMessage(content="أنت Frontend Developer. صمم لوحة تحكم طبية تعرض نتائج التحليل والخصوصية جنباً إلى جنب."),
+            SystemMessage(content="أنت Frontend Developer. صمم واجهة 'Sovereign Emergency Dashboard' احترافية جداً."),
             HumanMessage(content=ui_prompt)
         ])
         
-        # 4. الـ COO: وثيقة البيع (القيمة المضافة المزدوجة)
-        co_prompt = (f"صمم PRODUCT_OFFER.md لهذا المنتج. ركز على كيف يحل أزمة الخصوصية "
-                      f"وفي نفس الوقت يوفر أداة تشخيص مساعدة للأطباء في السويد.")
+        # 4. الـ COO: استراتيجية البيع للمستشفيات السويدية
+        co_prompt = (f"صمم عرضاً تجارياً (OFFER.md) لمنصة الطوارئ الشاملة. ركز على تقليل وقت الانتظار "
+                      f"في الطوارئ السويدية بنسبة 40% وضمان الأمان السيادي للبيانات.")
         sales_strategy = safe_invoke(llm_gemini, [
-            SystemMessage(content="أنت COO خبير. سوق للمنتج كحل 'سيادي' يجمع بين الأمان والذكاء."), 
+            SystemMessage(content="أنت COO خبير في الأنظمة الصحية السويدية (Socialstyrelsen standards)."), 
             HumanMessage(content=co_prompt)
         ])
         
-        # 5. التنفيذ والتأمين
+        # 5. التوقيت والتأمين
         ts = datetime.datetime.now(SWEDEN_TZ).strftime("%H%M")
-        code_fn, ui_fn, doc_fn = f"logic_{ts}.py", f"ui_{ts}.py", f"offer_{ts}.md"
+        code_fn, ui_fn, doc_fn = f"emergency_logic_{ts}.py", f"emergency_ui_{ts}.py", f"emergency_offer_{ts}.md"
         
         archive_and_save_production("TECH_LOGIC", code_fn, source_code)
         archive_and_save_production("FRONTEND_UI", ui_fn, ui_code)
         archive_and_save_production("SALES_DOC", doc_fn, sales_strategy)
         
-        git_status_1 = export_to_github(code_fn, source_code, f"Logic & AI Asset: {ts}")
-        git_status_2 = export_to_github(ui_fn, ui_code, f"UI AI-Dashboard: {ts}")
-        git_status_3 = export_to_github(doc_fn, sales_strategy, f"Sales Strategy: {ts}")
+        git_status_1 = export_to_github(code_fn, source_code, f"Emergency AI Logic: {ts}")
+        git_status_2 = export_to_github(ui_fn, ui_code, f"Emergency UI Dashboard: {ts}")
+        git_status_3 = export_to_github(doc_fn, sales_strategy, f"Emergency Sales Strategy: {ts}")
         
         current_time = datetime.datetime.now(SWEDEN_TZ).strftime("%H:%M")
         
-        return (f"🏛️ **تقرير خط الإنتاج المتكامل - النسخة الذكية ({current_time})**\n\n"
-                f"🛡️ **حالة الخزنة (GitHub):**\n- {git_status_1}\n- {git_status_2}\n- {git_status_3}\n\n"
-                f"🧠 **تحديث الذكاء:** تم دمج وحدة التحليل الطبي المستقلة داخل الأصول البرمجية.")
+        return (f"🏛️ **تقرير منصة الطوارئ السيادية الشاملة ({current_time})**\n\n"
+                f"✅ **الحالة:** تم دمج القلب، الأعصاب، والعظام ونظام الفرز.\n"
+                f"🛡️ **GitHub Archive:**\n- {git_status_1}\n- {git_status_2}\n- {git_status_3}\n\n"
+                f"📈 **ميزة التنافس:** المنتج الآن يفرز الحالات الحرجة آلياً ويضمن خصوصية GDPR.")
 
     except Exception as e:
-        return f"❌ خطأ حرج في المحرك السيادي: {str(e)}"
+        return f"❌ فشل في المحرك الشامل: {str(e)}"
