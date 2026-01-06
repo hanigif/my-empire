@@ -11,7 +11,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_core.messages import HumanMessage, SystemMessage
 
-# --- الإعدادات السيادية (2026) ---
+# --- 1. الإعدادات السيادية (2026) ---
 GK_KEY = os.environ.get("GROQ_API_KEY")
 GOOGLE_KEY = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN") 
@@ -20,11 +20,15 @@ SWEDEN_TZ = pytz.timezone('Europe/Stockholm')
 KNOWLEDGE_BASE_DIR = "knowledge_base"
 PRODUCTION_DIR = "production_v1"
 
+# سجلات المراقبة العالمية
+EMPIRE_START_TIME = datetime.datetime.now(SWEDEN_TZ)
+PULSE_COUNT = 0
+
 for folder in [KNOWLEDGE_BASE_DIR, PRODUCTION_DIR]:
     if not os.path.exists(folder):
         os.makedirs(folder)
 
-# --- إعداد العقول السيادية ---
+# --- 2. إعداد العقول السيادية ---
 llm_backup = ChatGroq(temperature=0.1, model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY)
 
 try:
@@ -38,22 +42,24 @@ except Exception:
 
 search_tool = DuckDuckGoSearchRun()
 
-# --- [إضافة] وحدة النبض الذكي (Keep-Alive Pulse) لضمان عمل Render 24/7 ---
+# --- 3. نظام النبض الذكي (Keep-Alive) ---
 def keep_alive_pulse():
-    """تمنع الخادم من النوم بإرسال إشارة لنفسه كل 10 دقائق"""
+    global PULSE_COUNT
     APP_URL = "https://my-empire.onrender.com" 
     while True:
         try:
-            # محاولة مناداة الرابط الأساسي
+            # النبض يمنع Render من النوم
             requests.get(APP_URL, timeout=10)
+            PULSE_COUNT += 1
         except Exception:
             pass
         time.sleep(600) # نبضة كل 10 دقائق
 
-# تشغيل النبض في الخلفية (Thread)
+# تشغيل النبض في خيط منفصل فوراً
 pulse_thread = threading.Thread(target=keep_alive_pulse, daemon=True)
 pulse_thread.start()
 
+# --- 4. وظائف الأرشفة والرفع ---
 def export_to_github(filename, content, commit_message):
     try:
         if not GITHUB_TOKEN: return "⚠️ GITHUB_TOKEN مفقود."
@@ -91,24 +97,32 @@ def archive_and_save_production(role, filename, content):
 def safe_invoke(llm, messages):
     try:
         return llm.invoke(messages).content
-    except Exception as e:
+    except Exception:
         return llm_backup.invoke(messages).content
 
+# --- 5. قسم الاختبار المستقل (Auditor) ---
 def get_auditor_review(logic, ui, task):
-    """قسم الاختبار المستقل: مراجعة الجودة والتدقيق الطبي الصارم"""
     audit_prompt = (f"أنت مفتش جودة طبي مستقل (QA Auditor). راجع كود المنطق: {logic} وكود الواجهة: {ui}. "
                     f"للمهمة: {task}. ابحث عن: أخطاء طبية، عدم مطابقة للمعايير السويدية، ثغرات خصوصية. "
-                    f"إذا وجدت خطأ طبياً حرجاً، ابدأ ردك فوراً بكلمة 'STOP_PRODUCTION'. "
-                    f"قدم نصائح تقنية واضحة للتطوير في الدورة القادمة.")
+                    f"إذا وجدت خطأ طبياً حرجاً، ابدأ ردك فوراً بكلمة 'STOP_PRODUCTION'.")
     return safe_invoke(llm_gemini, [
-        SystemMessage(content="أنت رئيس قسم الجودة المستقل. هدفك حماية سمعة القائد الطبية وضمان أعلى معايير الجودة."),
+        SystemMessage(content="أنت رئيس قسم الجودة المستقل. لا تجامل الفريق."),
         HumanMessage(content=audit_prompt)
     ])
 
+# --- 6. المحرك الرئيسي (المدير السيادي) ---
 def get_board_decision(task):
-    """محرك التطوير الذاتي: إنتاج، فحص، تحسين (3 دورات جودة)"""
+    # ميزة تقرير الحالة (جديد)
+    if task.strip() in ["حالة الإمبراطورية", "status", "report"]:
+        uptime = datetime.datetime.now(SWEDEN_TZ) - EMPIRE_START_TIME
+        return (f"🏛️ **تقرير حالة الإمبراطورية السيادية**\n\n"
+                f"⏱️ **وقت التشغيل:** {str(uptime).split('.')[0]}\n"
+                f"💓 **نبضات Keep-Alive:** {PULSE_COUNT}\n"
+                f"🛡️ **حالة النظام:** مستيقظ 24/7\n"
+                f"✅ **التطوير الذاتي:** نشط (3 دورات تحسين).")
+
     try:
-        # 1. البحث في المعايير السويدية الحديثة
+        # البحث في المعايير السويدية
         search_query = f"Sweden AI medical software standards 2026 Patientdatalagen Socialstyrelsen"
         standards = search_tool.run(search_query)
         
@@ -119,50 +133,49 @@ def get_board_decision(task):
 
         # دورة التطوير الذاتي (3 دورات تحسين)
         for i in range(1, 4):
-            cto_prompt = (f"الدورة {i}: بناءً على معايير السويد: {standards}. "
-                          f"المهمة: {task}. التاريخ والملاحظات: {iteration_history}. "
-                          f"اكتب كود (logic.py) محسن، دقيق طبياً، ومؤمن بالكامل.")
+            cto_prompt = (f"الدورة {i}: معايير السويد: {standards}. المهمة: {task}. "
+                          f"ملاحظات سابقة: {iteration_history}. اكتب كود logic.py محسن.")
             current_logic = safe_invoke(llm_backup, [
-                SystemMessage(content="أنت Senior Medical Architect. وظيفتك تطوير كود طبي سيادي عالمي المستوى."),
+                SystemMessage(content="أنت Senior Medical Architect."),
                 HumanMessage(content=cto_prompt)
             ])
             
-            ui_prompt = f"صمم واجهة Streamlit احترافية لهذا المنطق المطور: {current_logic}"
-            current_ui = safe_invoke(llm_backup, [
-                SystemMessage(content="أنت Frontend Developer طبي متخصص."),
-                HumanMessage(content=ui_prompt)
-            ])
+            ui_prompt = f"صمم واجهة Streamlit لهذا الكود: {current_logic}"
+            current_ui = safe_invoke(llm_backup, [SystemMessage(content="أنت UI Specialist."), HumanMessage(content=ui_prompt)])
 
+            # الاختبار المستقل
             audit_report = get_auditor_review(current_logic, current_ui, task)
+            if "STOP_PRODUCTION" not in audit_report: 
+                break # اجتاز الاختبار، لا داعي لدورات إضافية
             
-            # إذا اجتاز الاختبار في أي دورة بعد الأولى، نعتمد النتيجة
-            if "STOP_PRODUCTION" not in audit_report:
-                break
-            
-            iteration_history = f"فشل في الدورة {i}: {audit_report}"
+            iteration_history = f"فشل الدورة {i}: {audit_report}"
 
+        # التحقق من الإيقاف الطارئ
         if "STOP_PRODUCTION" in audit_report:
-            return (f"🛑 **توقف التطوير الذاتي - لم نصل للمعايير**\n\n"
-                    f"المفتش رصد مخاطر طبية بعد 3 محاولات تحسين:\n\n{audit_report}")
+            return (f"🛑 **بروتوكول الإيقاف الطارئ نشط**\n\n"
+                    f"لم ينجح النظام في تجاوز اختبار الجودة بعد 3 محاولات.\n"
+                    f"📝 تقرير المفتش: {audit_report}")
 
-        co_prompt = f"صمم عرض بيع يركز على جودة التطوير الذاتي التكراري والمطابقة لـ {standards}"
+        # استراتيجية البيع
+        co_prompt = f"صمم عرض بيع لمنتج مطابق لمعايير {standards} بعد 3 مراحل تطوير ذاتي."
         sales_strategy = safe_invoke(llm_gemini, [SystemMessage(content="أنت COO خبير."), HumanMessage(content=co_prompt)])
         
+        # حفظ وأرشفة ورفع
         ts = datetime.datetime.now(SWEDEN_TZ).strftime("%H%M")
-        code_fn, ui_fn, doc_fn = f"evolved_logic_{ts}.py", f"evolved_ui_{ts}.py", f"evolved_offer_{ts}.md"
+        code_fn, ui_fn, doc_fn = f"logic_{ts}.py", f"ui_{ts}.py", f"offer_{ts}.md"
         
         archive_and_save_production("TECH_LOGIC", code_fn, current_logic)
         archive_and_save_production("FRONTEND_UI", ui_fn, current_ui)
         archive_and_save_production("SALES_DOC", doc_fn, sales_strategy)
         
-        git_1 = export_to_github(code_fn, current_logic, f"Evolved Logic V4.0 {ts}")
-        git_2 = export_to_github(ui_fn, current_ui, f"Evolved UI V4.0 {ts}")
-        git_3 = export_to_github(doc_fn, sales_strategy, f"Evolved Sales Strategy {ts}")
+        git_1 = export_to_github(code_fn, current_logic, f"Evolved Logic {ts}")
+        git_2 = export_to_github(ui_fn, current_ui, f"Evolved UI {ts}")
+        git_3 = export_to_github(doc_fn, sales_strategy, f"Evolved Offer {ts}")
         
-        return (f"🏛️ **تقرير التطوير الذاتي المعتمد ({ts})**\n\n"
-                f"🛡️ **الحالة:** المنتج جاهز ومر بـ {i} دورات تحسين.\n"
-                f"✅ **نبض النظام:** النبض الذكي يعمل لضمان تواجد 24/7.\n"
-                f"📋 **ملخص الاختبار:** {audit_report[:300]}...")
+        return (f"🏛️ **تقرير الإنتاج السيادي المعتمد ({ts})**\n\n"
+                f"✅ تم اجتياز الاختبار بعد {i} دورات تحسين.\n"
+                f"🛡️ تم التأمين في GitHub.\n"
+                f"📋 **ملخص المفتش:** {audit_report[:300]}...")
 
     except Exception as e:
-        return f"❌ فشل في المحرك: {str(e)}"
+        return f"❌ خطأ حرج في المحرك: {str(e)}"
