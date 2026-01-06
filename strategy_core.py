@@ -42,28 +42,31 @@ class StrategyCore:
         self.legal_guardian = self._initialize_gemini_with_failover()
 
     def _initialize_gemini_with_failover(self):
-        """تحديث سيادي: استخدام الموديلات الأكثر استقراراً لتجاوز خطأ 404 وتفعيل الفيتو"""
+        """تحديث سيادي نهائي: تجاوز خطأ v1beta والربط بالمحرك المستقر مباشرة"""
         if not self.gemini_key:
             logging.error("❌ مفتاح Gemini غائب عن إعدادات الرندر.")
             return None
         
         clean_key = self.gemini_key.strip()
-        # ترتيب المسارات: نبدأ بـ Pro لأنه الأكثر استقراراً في السيرفرات حالياً
-        variants = ["gemini-1.5-pro", "models/gemini-1.5-pro", "gemini-1.5-flash", "models/gemini-1.5-flash"]
+        
+        # استخدام أسماء الموديلات المستقرة لتجنب استدعاء v1beta المعطل في السيرفر
+        variants = ["gemini-1.5-pro", "gemini-pro", "gemini-1.5-flash"]
         
         for model_path in variants:
             try:
                 model = ChatGoogleGenerativeAI(
                     model=model_path, 
                     google_api_key=clean_key,
-                    temperature=0
+                    temperature=0,
+                    # تحويل رسائل النظام لرسائل مستخدم لضمان قبول السيرفر للطلب
+                    convert_system_message_to_human=True 
                 )
                 # اختبار الاتصال الفعلي (Handshake)
-                model.invoke([HumanMessage(content="Sovereign Check")])
-                logging.info(f"⚖️ المحامي الرقمي اتصل بنجاح عبر المسار المستقر: {model_path}")
+                model.invoke([HumanMessage(content="Sovereign Ping")])
+                logging.info(f"⚖️ المحامي الرقمي اخترق الحاجز التقني عبر: {model_path}")
                 return model
             except Exception as e:
-                logging.warning(f"⚠️ تجربة المسار {model_path} فشلت: {e}")
+                logging.warning(f"⚠️ المحرك رفض المسار {model_path}: {e}")
                 continue
         
         return None
@@ -181,4 +184,4 @@ class StrategyCore:
             if "VETO_LEGAL" in str(e): raise e
             raise Exception(f"فشل في إتمام المراجعة القانونية: {e}")
 
-# نهاية الكود السيادي المحدث - الإصدار 2.1.2 (2026)
+# نهاية الكود السيادي المحدث - الإصدار 2.1.3 (2026)
