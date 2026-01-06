@@ -1,19 +1,27 @@
 import os
 import logging
+import datetime
 from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_core.messages import HumanMessage, SystemMessage
 
 # إعداد السجلات لمراقبة أداء المحامي والمبرمج
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 class StrategyCore:
     def __init__(self):
-        # سحب المفاتيح من الخزنة الرقمية في Render (تأكد من مطابقة الأسماء في Render)
+        """تهيئة النخبة: استدعاء المحركات مع نظام الحماية الثلاثي"""
+        # سحب المفاتيح من الخزنة الرقمية
         self.groq_key = os.getenv("GROQ_API_KEY")
         self.gemini_key = os.getenv("GEMINI_API_KEY")
         self.search_tool = DuckDuckGoSearchRun()
+        
+        # توقيت السويد الرسمي للعمليات السيادية
+        self.current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         # 1. إعداد المبرمج الرقمي (Llama 3.3)
         try:
@@ -23,78 +31,160 @@ class StrategyCore:
                     model_name="llama-3.3-70b-versatile", 
                     api_key=self.groq_key
                 )
+                logging.info("✅ المبرمج الرقمي جاهز للعمل.")
             else:
                 self.programmer = None
         except Exception as e:
-            logging.error(f"❌ فشل تهيئة Groq: {e}")
+            logging.error(f"❌ عطل في تهيئة المبرمج: {e}")
             self.programmer = None
             
-        # 2. إعداد المحامي والمدقق (Gemini) - بروتوكول التشغيل المحصن
-        self.legal_guardian = self._initialize_gemini()
+        # 2. إعداد المحامي والمدقق (Gemini) - بروتوكول التشغيل المحصن ضد 404
+        self.legal_guardian = self._initialize_gemini_with_failover()
 
-    def _initialize_gemini(self):
-        """محاولة تهيئة الموديل بأكثر من صيغة لضمان تخطي خطأ 404 وتأكيد المفتاح"""
+    def _initialize_gemini_with_failover(self):
+        """نظام تشغيل المحامي بأكثر من صيغة لضمان تخطي أخطاء الاستضافة"""
         if not self.gemini_key:
-            logging.error("❌ GEMINI_API_KEY غير موجود في إعدادات البيئة!")
+            logging.error("❌ مفتاح Gemini غائب عن إعدادات الرندر.")
             return None
         
-        # قائمة بالأسماء الممكنة للموديل لضمان التوافق مع تحديثات جوجل 2026
-        model_variants = ["gemini-1.5-flash", "models/gemini-1.5-flash", "gemini-pro"]
+        # تنظيف المفتاح وتجربة الموديلات المتاحة في 2026
+        clean_key = self.gemini_key.strip()
+        variants = ["gemini-1.5-flash", "models/gemini-1.5-flash", "gemini-pro"]
         
-        for model_name in model_variants:
+        for model_name in variants:
             try:
-                # محاولة إنشاء المحرك
                 model = ChatGoogleGenerativeAI(
                     model=model_name, 
-                    google_api_key=self.gemini_key.strip(), # تنظيف المفتاح من أي مسافات زائدة
+                    google_api_key=clean_key,
                     temperature=0
                 )
-                # اختبار الاتصال الفعلي (Invoke Test)
-                model.invoke([HumanMessage(content="Hello")])
-                logging.info(f"✅ تم تفعيل المحامي الرقمي بنجاح: {model_name}")
+                # اختبار الاتصال الفوري (The Sovereign Handshake)
+                model.invoke([HumanMessage(content="Sovereign Check")])
+                logging.info(f"⚖️ المحامي الرقمي اتصل بنجاح عبر: {model_name}")
                 return model
             except Exception as e:
-                logging.warning(f"⚠️ تجربة {model_name} فشلت: {e}")
+                logging.warning(f"⚠️ الموديل {model_name} لم يستجب: {e}")
                 continue
         
         return None
 
     def _fetch_reliable_info(self, topic):
         """البحث عن معلومات من مصادر سويدية موثوقة فقط 2026 (الهدف رقم 3)"""
-        search_query = f"{topic} site:gov.se OR site:socialstyrelsen.se OR site:riksdagen.se 2026"
+        logging.info(f"🌐 جاري البحث السيادي عن: {topic}")
+        # استهداف المواقع الحكومية والطبية في السويد
+        search_query = (
+            f"{topic} site:gov.se OR site:socialstyrelsen.se OR "
+            f"site:riksdagen.se OR site:1177.se 2026"
+        )
         try:
-            return self.search_tool.run(search_query)
+            results = self.search_tool.run(search_query)
+            return results if results else "لم يتم العثور على تحديثات قانونية جديدة."
         except Exception as e:
-            return f"فشل الاتصال بالإنترنت لجلب البيانات الحية: {str(e)}"
+            return f"عطل في الاتصال بمصادر البيانات: {str(e)}"
 
     def fact_check_service(self, raw_info):
-        """المدقق السيادي: فحص المعلومات وتنقيتها من الأخطاء (الهدف رقم 6)"""
+        """المدقق السيادي: تنقية البيانات من الأخطاء والبروباغندا (الهدف رقم 6)"""
         if not self.legal_guardian:
-            return f"تحذير: المحرك القانوني غير متصل. البيانات الخام: {raw_info}"
+            return f"⚠️ بيانات غير مدققة قانونياً: {raw_info}"
         
         verify_prompt = (
-            f"بصفتك مدقق حقائق سيادي، راجع المعلومات التالية: \n{raw_info}\n"
-            "استخرج فقط الحقائق الصافية والمتوافقة مع معايير السويد 2026."
+            f"التوقيت الحالي: {self.current_time}\n"
+            f"بصفتك مدقق حقائق سيادي في السويد، قم بتحليل المعلومات التالية:\n{raw_info}\n"
+            "المطلوب: استخراج القوانين السويدية الفعلية لعام 2026 وحذف أي افتراضات غير دقيقة."
         )
         try:
             verified_data = self.legal_guardian.invoke([
-                SystemMessage(content="أنت مدقق حقائق صارم."),
+                SystemMessage(content="أنت مدقق حقائق صارم تعمل لدى الحكومة السويدية."),
                 HumanMessage(content=verify_prompt)
             ])
             return verified_data.content
         except Exception as e:
-            logging.error(f"Fact check error: {e}")
-            return f"بيانات خام (فشل التدقيق): {raw_info}"
+            logging.error(f"❌ عطل في التدقيق: {e}")
+            return f"بيانات خام (تعذر التدقيق): {raw_info}"
 
     def consult_deepseek(self, task, context):
-        """استشارة المبرمج الرقمي مع نظام التبديل الآلي (Failover) (الهدف رقم 9)"""
-        prompt = f"المهمة: {task}\nالسياق المحدث: {context}\nاكتب الكود البرمجي اللازم."
+        """استشارة المبرمج الرقمي مع نظام التبديل الآلي (الهدف رقم 9)"""
+        prompt = (
+            f"المهمة المطلوبة: {task}\n"
+            f"السياق القانوني المعتمد: {context}\n"
+            "قم بكتابة الكود البرمجي مع مراعاة أعلى معايير الأمان السويدية."
+        )
         
         if not self.programmer:
+            logging.warning("⚠️ المبرمج الأساسي غائب. تفعيل خطة الطوارئ عبر Gemini...")
             return self._emergency_programming(prompt)
 
         try:
             response = self.programmer.invoke(prompt)
             return response.content
         except Exception as e:
-            if any(err in str(e
+            # التحقق من Rate Limit أو أعطال السيرفر
+            if any(err in str(e).lower() for err in ["429", "rate_limit", "500", "overloaded"]):
+                logging.error("❌ عطل في المحرك الرئيسي. التبديل للمحرك الاحتياطي...")
+                return self._emergency_programming(prompt)
+            return f"خطأ حرج في الإنتاج البرمجي: {str(e)}"
+
+    def _emergency_programming(self, prompt):
+        """وظيفة الطوارئ البرمجية: Gemini يتحول لمبرمج عند غياب Llama"""
+        if not self.legal_guardian:
+            return "فشل سيادي حرج: جميع المحركات خارج الخدمة. تحقق من مفاتيح الـ API."
+        try:
+            emergency_response = self.legal_guardian.invoke([
+                SystemMessage(content="أنت الآن Senior AI Developer مخصص لحالات الطوارئ."),
+                HumanMessage(content=prompt)
+            ])
+            return f"⚠️ (توليد طارئ عبر المحرك الاحتياطي)\n\n{emergency_response.content}"
+        except Exception as e:
+            return f"انهيار كامل لنظام الإنتاج: {e}"
+
+    def get_consensus(self, topic):
+        """بروتوكول الإجماع السيادي الكامل (الفيتو المطلق)"""
+        logging.info(f"⚖️ بدء بروتوكول الإجماع للمهمة: {topic}")
+        
+        # 1. فحص توفر "قلب النظام" (المحامي)
+        if not self.legal_guardian:
+            raise Exception("VETO_LEGAL: المحرك القانوني غير مفعل. النظام في وضع الإغلاق التام.")
+
+        # 2. البحث والتقصي
+        raw_info = self._fetch_reliable_info(topic)
+        
+        # 3. التدقيق الرقمي
+        verified_context = self.fact_check_service(raw_info)
+        
+        # 4. الإنتاج البرمجي (بناءً على السياق المدقق)
+        ds_opinion = self.consult_deepseek(topic, verified_context)
+        
+        # 5. مراجعة الفيتو النهائية (المحامي يحكم على المبرمج)
+        legal_review_prompt = f"""
+        بصفتك المحامي الرسمي، راجع المهمة: {topic} 
+        والكود المقترح من المبرمج: {ds_opinion}
+        
+        بناءً على قوانين Socialstyrelsen و GDPR و Patientdatalagen لعام 2026:
+        - إذا كان الإجراء يهدد خصوصية المواطن السويدي، ابدأ بـ 'REJECTED' واكتب تقرير المخالفات.
+        - إذا كان الإجراء آمناً، ابدأ بـ 'APPROVED'.
+        """
+        
+        try:
+            legal_decision_resp = self.legal_guardian.invoke([
+                SystemMessage(content="أنت المستشار القانوني السيادي. مهمتك حماية السويد من المخالفات الرقمية."),
+                HumanMessage(content=legal_review_prompt)
+            ])
+            legal_decision = legal_decision_resp.content
+
+            # 6. تفعيل الفيتو الصارم
+            if "REJECTED" in legal_decision.upper():
+                logging.error(f"🛑 فيتو قانوني: {legal_decision}")
+                raise Exception(f"VETO_LEGAL: {legal_decision}")
+
+            # 7. التقرير النهائي المعتمد
+            return {
+                "Verified_Context": legal_decision,
+                "DeepSeek_Logic": ds_opinion,
+                "Status": "APPROVED BY SOVEREIGN COUNCIL",
+                "Timestamp": self.current_time
+            }
+        except Exception as e:
+            if "VETO_LEGAL" in str(e): raise e
+            raise Exception(f"فشل في إتمام المراجعة القانونية: {e}")
+
+# نهاية الكود السيادي - الإصدار 2.1.0 (2026)
