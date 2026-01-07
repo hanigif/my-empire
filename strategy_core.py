@@ -41,33 +41,39 @@ class StrategyCore:
         self.legal_guardian = self._initialize_gemini_with_failover()
 
     def _initialize_gemini_with_failover(self):
-        """تجاوز خطأ 404 والربط بالمحرك المستقر"""
+        """تحديث سيادي: كسر حصار الـ 404 عبر فرض إصدار v1 المستقر"""
         if not self.gemini_key:
             logging.error("❌ مفتاح Gemini غائب.")
             return None
         
         clean_key = self.gemini_key.strip()
+        
+        # القائمة الذهبية للموديلات التي تدعم الإصدار المستقر v1
         variants = [
-            "models/gemini-1.5-pro-latest", 
-            "models/gemini-1.5-flash-latest",
             "gemini-1.5-pro",
+            "gemini-1.5-flash",
             "gemini-pro"
         ]
         
         for model_path in variants:
             try:
+                # السر: تحديد version='v1' يخرجنا من دوامة v1beta
                 model = ChatGoogleGenerativeAI(
                     model=model_path, 
                     google_api_key=clean_key,
                     temperature=0,
+                    version="v1",  # الفتح القسري للبوابة المستقرة
                     convert_system_message_to_human=True 
                 )
+                
+                # اختبار القوة (Handshake)
                 model.invoke([HumanMessage(content="Sovereign Handshake")])
-                logging.info(f"⚖️ تم الاتصال عبر: {model_path}")
+                logging.info(f"⚖️ المحامي الرقمي اخترق الحصار بنجاح عبر: {model_path}")
                 return model
             except Exception as e:
-                logging.warning(f"⚠️ المسار {model_path} فشل: {e}")
+                logging.warning(f"⚠️ المسار {model_path} لا يزال يرفض: {e}")
                 continue
+        
         return None
 
     def _fetch_reliable_info(self, topic):
