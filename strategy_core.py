@@ -19,7 +19,7 @@ class StrategyCore:
         self.gemini_key = os.getenv("GEMINI_API_KEY")
         self.search_tool = DuckDuckGoSearchRun()
         
-        # توقيت السويد الرسمي للعمليات السيادية
+        # توقيت السويد الرسمي
         self.current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         # 1. إعداد المبرمج الرقمي (Llama 3.3)
@@ -37,130 +37,63 @@ class StrategyCore:
             logging.error(f"❌ عطل في تهيئة المبرمج: {e}")
             self.programmer = None
             
-        # 2. إعداد المحامي والمدقق (Gemini)
+        # 2. إعداد المحامي والمدقق (Gemini) - معالجة خطأ 404
         self.legal_guardian = self._initialize_gemini_with_failover()
 
     def _initialize_gemini_with_failover(self):
-        """تحديث سيادي: كسر حصار الـ 404 عبر فرض إصدار v1 المستقر"""
+        """تحديث سيادي: فرض المسارات الكاملة لتجاوز خطأ 404"""
         if not self.gemini_key:
             logging.error("❌ مفتاح Gemini غائب.")
             return None
         
         clean_key = self.gemini_key.strip()
         
-        # القائمة الذهبية للموديلات التي تدعم الإصدار المستقر v1
+        # استخدام المسار الكامل 'models/' هو المفتاح لعام 2026
         variants = [
-            "gemini-1.5-pro",
-            "gemini-1.5-flash",
-            "gemini-pro"
+            "models/gemini-1.5-pro",
+            "models/gemini-1.5-flash",
+            "models/gemini-pro"
         ]
         
         for model_path in variants:
             try:
-                # السر: تحديد version='v1' يخرجنا من دوامة v1beta
                 model = ChatGoogleGenerativeAI(
                     model=model_path, 
                     google_api_key=clean_key,
                     temperature=0,
-                    version="v1",  # الفتح القسري للبوابة المستقرة
                     convert_system_message_to_human=True 
                 )
-                
-                # اختبار القوة (Handshake)
+                # اختبار الاتصال الفعلي
                 model.invoke([HumanMessage(content="Sovereign Handshake")])
                 logging.info(f"⚖️ المحامي الرقمي اخترق الحصار بنجاح عبر: {model_path}")
                 return model
             except Exception as e:
-                logging.warning(f"⚠️ المسار {model_path} لا يزال يرفض: {e}")
+                logging.warning(f"⚠️ المسار {model_path} رفض: {e}")
                 continue
-        
         return None
 
-    def _fetch_reliable_info(self, topic):
-        """البحث عن معلومات من مصادر سويدية موثوقة لعام 2026"""
-        logging.info(f"🌐 جاري البحث السيادي عن: {topic}")
-        search_query = (
-            f"{topic} site:gov.se OR site:socialstyrelsen.se OR "
-            f"site:riksdagen.se OR site:1177.se 2026"
+    def find_swedish_leads(self):
+        """وظيفة Sovereign Manager: البحث عن شركات سويدية تعاني من مشاكل امتثال"""
+        logging.info("🔍 جاري اصطياد أهداف تجارية في السويد...")
+        query = "Swedish companies data breach GDPR 2025 2026 news"
+        raw_results = self.search_tool.run(query)
+        
+        lead_prompt = (
+            f"بناءً على هذه الأخبار: {raw_results}\n"
+            "استخرج اسم شركة سويدية واحدة حقيقية تعاني من مشاكل خصوصية، "
+            "وصغ رسالة مبيعات احترافية موجهة لهم باسمهم لعرض منتج 'المدير السيادي' كحل تقني."
         )
+        
+        return self.consult_deepseek("صياغة عرض بيع سيادي", lead_prompt)
+
+    def _fetch_reliable_info(self, topic):
+        """البحث عن معلومات من مصادر سويدية موثوقة"""
+        search_query = f"{topic} site:gov.se OR site:socialstyrelsen.se 2026"
         try:
             results = self.search_tool.run(search_query)
-            return results if results else "لم يتم العثور على تحديثات قانونية جديدة."
+            return results if results else "لا توجد تحديثات قانونية."
         except Exception as e:
-            return f"عطل في الاتصال بمصادر البيانات: {str(e)}"
+            return f"عطل بحث: {str(e)}"
 
     def fact_check_service(self, raw_info):
-        """المدقق السيادي: تنقية البيانات من الأخطاء"""
-        if not self.legal_guardian:
-            return f"⚠️ بيانات غير مدققة قانونياً: {raw_info}"
-        
-        verify_prompt = (
-            f"التوقيت الحالي: {self.current_time}\n"
-            f"بصفتك مدقق حقائق سيادي في السويد، حلل ما يلي:\n{raw_info}\n"
-            "المطلوب: استخراج القوانين السويدية لعام 2026 فقط."
-        )
-        try:
-            verified_data = self.legal_guardian.invoke([
-                SystemMessage(content="أنت مدقق حقائق صارم في السويد."),
-                HumanMessage(content=verify_prompt)
-            ])
-            return verified_data.content
-        except Exception as e:
-            logging.error(f"❌ عطل في التدقيق: {e}")
-            return f"بيانات خام: {raw_info}"
-
-    def consult_deepseek(self, task, context):
-        """استشارة المبرمج الرقمي (Llama)"""
-        prompt = (f"المهمة: {task}\nالسياق القانوني: {context}\nاكتب الكود بأمان سويدي.")
-        if not self.programmer:
-            return self._emergency_programming(prompt)
-        try:
-            response = self.programmer.invoke(prompt)
-            return response.content
-        except Exception as e:
-            logging.error(f"❌ عطل في المحرك الرئيسي، تفعيل الطوارئ: {e}")
-            return self._emergency_programming(prompt)
-
-    def _emergency_programming(self, prompt):
-        """وظيفة الطوارئ عبر Gemini"""
-        if not self.legal_guardian:
-            return "فشل سيادي حرج: جميع المحركات خارج الخدمة."
-        try:
-            emergency_response = self.legal_guardian.invoke([
-                SystemMessage(content="أنت الآن Senior Developer للطوارئ."),
-                HumanMessage(content=prompt)
-            ])
-            return f"⚠️ (توليد طارئ)\n\n{emergency_response.content}"
-        except Exception as e:
-            return f"انهيار النظام: {e}"
-
-    def get_consensus(self, topic):
-        """بروتوكول الإجماع السيادي والفيتو المطلق"""
-        logging.info(f"⚖️ بدء بروتوكول الإجماع: {topic}")
-        if not self.legal_guardian:
-            raise Exception("VETO_LEGAL: المحرك القانوني معطل.")
-
-        raw_info = self._fetch_reliable_info(topic)
-        verified_context = self.fact_check_service(raw_info)
-        ds_opinion = self.consult_deepseek(topic, verified_context)
-        
-        legal_review_prompt = f"راجع المهمة: {topic}\nوالكود: {ds_opinion}\nابدأ بـ APPROVED أو REJECTED بناءً على قوانين 2026."
-        
-        try:
-            legal_decision = self.legal_guardian.invoke([
-                SystemMessage(content="أنت المستشار القانوني السيادي."),
-                HumanMessage(content=legal_review_prompt)
-            ]).content
-
-            if "REJECTED" in legal_decision.upper():
-                raise Exception(f"VETO_LEGAL: {legal_decision}")
-
-            return {
-                "Verified_Context": legal_decision,
-                "DeepSeek_Logic": ds_opinion,
-                "Status": "APPROVED BY SOVEREIGN COUNCIL",
-                "Timestamp": self.current_time
-            }
-        except Exception as e:
-            if "VETO_LEGAL" in str(e): raise e
-            raise Exception(f"فشل المراجعة: {e}")
+        """المدقق
