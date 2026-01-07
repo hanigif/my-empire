@@ -37,11 +37,21 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or update.effective_user.id != MY_ID: 
         return
     
+    task = update.message.text.strip()
+    
+    # --- إضافة صمام أمان هنا لضمان تشغيل المختبر ---
+    if task.lower() in ["اختبار", "test lab"]:
+        await update.message.reply_text("⚖️ جاري تشغيل المختبر السيادي (المسار السريع)...")
+        from strategy_core import SovereignLab # استيراد مباشر
+        lab = SovereignLab()
+        response = lab.run_stress_test()
+        await update.message.reply_text(response)
+        return # إنهاء العملية هنا فوراً
+    # ---------------------------------------------
+
     await update.message.reply_text("⚖️ جاري استشارة العقول السيادية (Gemini & Llama)...")
     
     try:
-        task = update.message.text
-        # استدعاء المحرك الذي يحتوي على وظيفة الـ Scout والإنتاج
         response = get_board_decision(task)
         await update.message.reply_text(response)
     except Exception as e:
@@ -154,3 +164,4 @@ if __name__ == '__main__':
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         logging.info("System Shutdown.")
+
