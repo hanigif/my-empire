@@ -37,18 +37,16 @@ class StrategyCore:
             logging.error(f"❌ عطل في تهيئة المبرمج: {e}")
             self.programmer = None
             
-        # 2. إعداد المحامي والمدقق (Gemini) - معالجة خطأ 404
+        # 2. إعداد المحامي والمدقق (Gemini)
         self.legal_guardian = self._initialize_gemini_with_failover()
 
     def _initialize_gemini_with_failover(self):
-        """تحديث سيادي: فرض المسارات الكاملة لتجاوز خطأ 404"""
+        """تجاوز خطأ 404 عبر فرض المسارات الكاملة"""
         if not self.gemini_key:
             logging.error("❌ مفتاح Gemini غائب.")
             return None
         
         clean_key = self.gemini_key.strip()
-        
-        # استخدام المسار الكامل 'models/' هو المفتاح لعام 2026
         variants = [
             "models/gemini-1.5-pro",
             "models/gemini-1.5-flash",
@@ -63,9 +61,8 @@ class StrategyCore:
                     temperature=0,
                     convert_system_message_to_human=True 
                 )
-                # اختبار الاتصال الفعلي
                 model.invoke([HumanMessage(content="Sovereign Handshake")])
-                logging.info(f"⚖️ المحامي الرقمي اخترق الحصار بنجاح عبر: {model_path}")
+                logging.info(f"⚖️ المحامي الرقمي متصل عبر: {model_path}")
                 return model
             except Exception as e:
                 logging.warning(f"⚠️ المسار {model_path} رفض: {e}")
@@ -73,27 +70,40 @@ class StrategyCore:
         return None
 
     def find_swedish_leads(self):
-        """وظيفة Sovereign Manager: البحث عن شركات سويدية تعاني من مشاكل امتثال"""
+        """وظيفة Sovereign Manager: البحث عن أهداف وصياغة رسائل مبيعات"""
         logging.info("🔍 جاري اصطياد أهداف تجارية في السويد...")
         query = "Swedish companies data breach GDPR 2025 2026 news"
-        raw_results = self.search_tool.run(query)
-        
-        lead_prompt = (
-            f"بناءً على هذه الأخبار: {raw_results}\n"
-            "استخرج اسم شركة سويدية واحدة حقيقية تعاني من مشاكل خصوصية، "
-            "وصغ رسالة مبيعات احترافية موجهة لهم باسمهم لعرض منتج 'المدير السيادي' كحل تقني."
-        )
-        
-        return self.consult_deepseek("صياغة عرض بيع سيادي", lead_prompt)
-
-    def _fetch_reliable_info(self, topic):
-        """البحث عن معلومات من مصادر سويدية موثوقة"""
-        search_query = f"{topic} site:gov.se OR site:socialstyrelsen.se 2026"
         try:
-            results = self.search_tool.run(search_query)
-            return results if results else "لا توجد تحديثات قانونية."
+            raw_results = self.search_tool.run(query)
+            lead_prompt = (
+                f"بناءً على الأخبار: {raw_results}\n"
+                "استخرج اسم شركة سويدية حقيقية، وصغ رسالة مبيعات لمنتج 'المدير السيادي' لحل مشاكل الخصوصية."
+            )
+            return self.consult_deepseek("صياغة عرض بيع سيادي", lead_prompt)
         except Exception as e:
-            return f"عطل بحث: {str(e)}"
+            return f"فشل البحث عن عملاء: {e}"
 
     def fact_check_service(self, raw_info):
-        """المدقق
+        """المدقق السيادي: تنقية البيانات"""
+        if not self.legal_guardian:
+            return f"بيانات خام: {raw_info}"
+        try:
+            verified = self.legal_guardian.invoke([
+                SystemMessage(content="أنت مدقق حقائق سويدي."),
+                HumanMessage(content=f"حلل بدقة قوانين 2026: {raw_info}")
+            ])
+            return verified.content
+        except Exception as e:
+            logging.error(f"❌ خطأ تدقيق: {e}")
+            return raw_info
+
+    def consult_deepseek(self, task, context):
+        """استشارة المبرمج الرقمي"""
+        prompt = f"المهمة: {task}\nالسياق: {context}"
+        if not self.programmer:
+            return "المبرمج غير متاح حالياً."
+        try:
+            return self.programmer.invoke(prompt).content
+        except Exception as e:
+            logging.error(f"❌ خطأ برمجي: {e}")
+            return "فشل تنفيذ المهمة البرمجية."
