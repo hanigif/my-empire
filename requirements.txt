@@ -1,20 +1,32 @@
+# الأساسيات والويب
 flask
+hypercorn
+pytz
+python-dotenv
+
+# تحليل البيانات والرسوم
 pandas
+numpy
 plotly
 yfinance
-python-telegram-bot>=20.0
-langchain-groq
+
+# الذكاء الاصطناعي (المحركات السيادية)
+google-genai>=1.0.0
+langchain-groq>=0.1.0
 langchain-core
 langchain-google-genai>=2.0.0
 langchain-community
-googlesearch-python
-hypercorn
-pytz
+
+# البحث والأدوات
 duckduckgo-search==6.3.0
-APScheduler==3.10.4
+googlesearch-python
 ddgs
-google-generativeai>=0.8.0
 PyGithub
-langchain-google-genai>=1.0.0
-langchain-groq>=0.1.0
-google-generativeai>=0.5.0
+
+# التواصل والجدولة
+python-telegram-bot>=20.0
+APScheduler==3.10.4
+
+# محركات الاتصال
+requests
+httpx
