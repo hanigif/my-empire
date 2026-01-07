@@ -45,45 +45,33 @@ except Exception:
 
 search_tool = DuckDuckGoSearchRun()
 
-# --- 3. أدوات الاستخبارات والمبيعات (Sovereign Scout) ---
-
+# --- 3. وظيفة صيد العملاء (Sovereign Scout) ---
 def sovereign_scout():
-    """وظيفة البحث عن شركات سويدية وصياغة رسائل بيع مخصصة لها"""
-    logging.info("🕵️ جاري تشغيل 'الكشاف السيادي' للبحث عن أهداف...")
+    """البحث عن شركات سويدية وصياغة رسائل بيع مخصصة لها"""
+    search_query = "Swedish health-tech startups data compliance problems 2026 Patientdatalagen"
+    targets = search_tool.run(search_query)
     
-    # البحث عن شركات في قطاعات حساسة بالسويد
-    search_query = "Swedish health tech or fintech startups needing Patientdatalagen compliance 2026"
-    raw_targets = search_tool.run(search_query)
+    analysis_prompt = f"بناءً على هذه البيانات: {targets}. استخرج 3 شركات سويدية حقيقية تحتاج لخدمات الامتثال للبيانات السيادية واكتب رسالة مبيعات (Sales Pitch) بالسويدية والإنجليزية موجهة لمديرهم التقني."
     
-    analysis_prompt = f"""
-    بناءً على نتائج البحث: {raw_targets}
-    1. استخرج أسماء 3 شركات سويدية حقيقية (Real Swedish Companies).
-    2. صغ رسالة بيع (Sales Pitch) احترافية باللغة السويدية موجهة لمدير التقنية (CTO).
-    3. الرسالة يجب أن تعرض حل مشكلة الامتثال للبيانات الحساسة باستخدام نظامنا السيادي.
-    """
-    
-    # استخدام Gemini لصياغة الرسائل الاحترافية
     return safe_invoke(llm_gemini, [
-        SystemMessage(content="أنت مدير مبيعات تقني خبير في السوق السويدي."),
+        SystemMessage(content="أنت مدير مبيعات تقني خبير في قوانين السويد."),
         HumanMessage(content=analysis_prompt)
     ])
 
 # --- 4. الأنظمة الخلفية (Pulse & Factory) ---
-
 def keep_alive_pulse():
     global PULSE_COUNT
-    APP_URL = "https://my-empire.onrender.com" 
     while True:
         try:
-            requests.get(APP_URL, timeout=10)
+            requests.get("https://my-empire.onrender.com", timeout=10)
             PULSE_COUNT += 1
-        except Exception: pass
+        except: pass
         time.sleep(600)
 
 def autonomous_factory_loop():
     global AUTO_PRODUCTION_COUNT
     time.sleep(120)
-    auto_tasks = ["تحسين معايير Patientdatalagen 2026", "تحديث بروتوكولات الامتثال"]
+    auto_tasks = ["تحسين معايير Patientdatalagen 2026", "تطوير خوارزميات التشفير السويدية"]
     while True:
         task = random.choice(auto_tasks)
         get_board_decision(f"AUTO_MODE: {task}")
@@ -94,10 +82,9 @@ threading.Thread(target=keep_alive_pulse, daemon=True).start()
 threading.Thread(target=autonomous_factory_loop, daemon=True).start()
 
 # --- 5. وظائف التنفيذ والأرشفة ---
-
 def export_to_github(filename, content, commit_message):
     try:
-        if not GITHUB_TOKEN: return "⚠️ GITHUB_TOKEN مفقود."
+        if not GITHUB_TOKEN: return "⚠️ TOKEN مفقود"
         g = Github(GITHUB_TOKEN)
         repo = g.get_repo(REPO_NAME)
         try:
@@ -105,38 +92,44 @@ def export_to_github(filename, content, commit_message):
             repo.update_file(contents.path, commit_message, content, contents.sha)
         except:
             repo.create_file(filename, commit_message, content)
-        return "✅ Success"
-    except: return "❌ Fail"
+        return "✅ تم الرفع"
+    except: return "❌ فشل الرفع"
 
 def safe_invoke(llm, messages):
     try:
         return llm.invoke(messages).content
-    except Exception as e:
-        # إذا كان هناك خطأ في المحرك (مثل 429)، حاول استخدام البديل
-        logging.error(f"Error in LLM: {e}")
-        return "⚠️ المحرك مشغول حالياً."
+    except:
+        return llm_backup.invoke(messages).content
 
-# --- 6. المحرك الرئيسي (المعدل ليشمل البحث عن الشركات) ---
+def get_auditor_review(logic, ui, task):
+    audit_prompt = f"راجع المنطق: {logic} والواجهة: {ui} بناءً على Patientdatalagen 2026. إذا وجد خطر، ابدأ بـ STOP_PRODUCTION."
+    return safe_invoke(llm_gemini, [SystemMessage(content="Audit Chief"), HumanMessage(content=audit_prompt)])
 
+# --- 6. المحرك الرئيسي (المدير السيادي) ---
 def get_board_decision(task):
     clean_task = task.strip().lower()
     
-    # استجابة لطلب البحث عن عملاء
-    if "scout" in clean_task or "ابحث" in clean_task:
-        return f"🏛️ **تقرير الكشاف السيادي للعملاء المستهدفين**\n\n{sovereign_scout()}"
+    # ميزة صيد العملاء الجديدة
+    if any(k in clean_task for k in ["scout", "ابحث", "عملاء"]):
+        return f"🕵️ **تقرير الكشاف السيادي للعملاء:**\n\n{sovereign_scout()}"
 
-    if any(k in clean_task for k in ["status", "حالة"]):
+    # تقرير الحالة
+    if any(k in clean_task for k in ["status", "حالة", "report"]):
         uptime = datetime.datetime.now(SWEDEN_TZ) - EMPIRE_START_TIME
-        return f"🏛️ وقت التشغيل: {uptime.days}d {uptime.seconds//3600}h\n⚙️ دورات الإنتاج: {AUTO_PRODUCTION_COUNT}"
+        return f"🏛️ **تقرير الإمبراطورية**\n⏱️ تشغيل: {uptime.days}d {uptime.seconds//3600}h\n⚙️ إنتاج: {AUTO_PRODUCTION_COUNT}\n💓 نبضات: {PULSE_COUNT}"
 
-    # مسار الإنتاج العادي (كما هو في الكود السابق)
+    # مسار الإنتاج والتدقيق
     try:
-        standards = search_tool.run(f"Sweden AI laws 2026 {task}")
-        logic = safe_invoke(llm_backup, [SystemMessage(content="Architect"), HumanMessage(content=task)])
+        standards = search_tool.run(f"Sweden AI medical laws 2026 {task}")
+        logic = safe_invoke(llm_backup, [SystemMessage(content="Senior Architect"), HumanMessage(content=f"{task} Standards: {standards}")])
+        ui = safe_invoke(llm_backup, [SystemMessage(content="UI Specialist"), HumanMessage(content=f"UI for {logic}")])
+        
+        audit = get_auditor_review(logic, ui, task)
+        if "STOP_PRODUCTION" in audit: return f"🛑 فشل التدقيق: {audit[:200]}"
         
         ts = datetime.datetime.now(SWEDEN_TZ).strftime("%H%M")
         export_to_github(f"production/logic_{ts}.py", logic, f"Update {ts}")
         
-        return f"✅ تم الإنتاج والرفع لـ GitHub (ID: {ts})"
+        return f"🏛️ **تم الإنتاج ({ts})**\n✅ مطابق لمعايير 2026\n🛡️ تم التأمين على GitHub"
     except Exception as e:
-        return f"❌ خطأ: {str(e)}"
+        return f"❌ خطأ حرج: {str(e)}"
