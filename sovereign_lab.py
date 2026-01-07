@@ -95,6 +95,12 @@ def get_board_decision(task):
         lab = SovereignLab()
         return lab.run_stress_test()
 
+    # الخطوة 2: هنا فقط نضع الكود القديم (الذي تسبب في الرد 2221)
+    # تأكد أن هذا الكود يأتي "بعد" شرط الاختبار
+    if "some_old_condition": 
+        # منطقك القديم الذي يرسل "تم الإنتاج بنجاح"
+        pass
+
     # 2. كودك القديم (الذي حافظنا عليه)
     # استبدل هذه الشروط بما كان لديك بالضبط سابقاً
     if "scout" in task_lower:
