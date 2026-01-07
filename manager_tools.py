@@ -76,7 +76,7 @@ def autonomous_factory_loop():
         task = random.choice(auto_tasks)
         get_board_decision(f"AUTO_MODE: {task}")
         AUTO_PRODUCTION_COUNT += 1
-        time.sleep(2460)
+        time.sleep(5400)
 
 threading.Thread(target=keep_alive_pulse, daemon=True).start()
 threading.Thread(target=autonomous_factory_loop, daemon=True).start()
@@ -97,9 +97,19 @@ def export_to_github(filename, content, commit_message):
 
 def safe_invoke(llm, messages):
     try:
+        # المحاولة الأولى
         return llm.invoke(messages).content
-    except:
-        return llm_backup.invoke(messages).content
+    except Exception as e:
+        error_msg = str(e)
+        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+            logging.warning("🚨 زحام في المحركات. تفعيل بروتوكول الانتظار...")
+            # إذا فشل Gemini، جرب Llama بعد انتظار بسيط
+            time.sleep(2) 
+            try:
+                return llm_backup.invoke(messages).content
+            except:
+                return "🏛️ (رسالة نظام): المحركات السيادية في حالة استراحة قصيرة لتجنب الحظر. سأعود للعمل بكامل طاقتي خلال دقائق."
+        return f"⚠️ عذرًا قائد، واجهت تحديًا تقنيًا بسيطًا: {error_msg[:50]}"
 
 def get_auditor_review(logic, ui, task):
     audit_prompt = f"راجع المنطق: {logic} والواجهة: {ui} بناءً على Patientdatalagen 2026. إذا وجد خطر، ابدأ بـ STOP_PRODUCTION."
