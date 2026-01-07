@@ -121,10 +121,24 @@ def archive_and_save_production(role, filename, content):
 
 def safe_invoke(llm, messages):
     try:
+        # المحاولة الأولى بالمحرك المطلوب
         res = llm.invoke(messages)
         return res.content if hasattr(res, 'content') else str(res)
-    except Exception:
-        return llm_backup.invoke(messages).content
+    except Exception as e:
+        if "429" in str(e):
+            logging.error("⚠️ فشل المحرك الرئيسي (Rate Limit). يتم التحويل للمحرك البديل فوراً...")
+            # إذا فشل Groq، نستخدم Gemini مباشرة كنسخة احتياطية صلبة
+            try:
+                # محاكاة استدعاء Gemini كبديل طوارئ
+                prompt = messages[-1].content if isinstance(messages, list) else str(messages)
+                backup_res = llm_gemini.client.models.generate_content(
+                    model="gemini-2.0-flash", 
+                    contents=prompt
+                )
+                return backup_res.text
+            except:
+                return "🚨 جميع المحركات السيادية في حالة انتظار (Quota Full). يرجى المحاولة بعد قليل."
+        return f"❌ خطأ غير متوقع: {str(e)}"
 
 # --- 5. قسم الاختبار المستقل (Auditor) ---
 def get_auditor_review(logic, ui, task):
