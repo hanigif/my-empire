@@ -90,7 +90,7 @@ def home():
             <div class="hero">
                 <h1>SOVEREIGN GATE</h1>
                 <p class="tagline">نؤمن بيانات الرعاية الصحية السويدية لعام 2026. امتثال كامل لـ Patientdatalagen بلمسة تقنية سيادية تضمن أمنك القانوني.</p>
-                <a href="https://t.me/your_bot_username" class="cta-button">تواصل مع المحرك السيادي</a>
+                <a href="https://t.me/Htestai" class="cta-button">دخول غرفة العمليات H-Test</a>
             </div>
             
             <div class="features">
@@ -164,4 +164,5 @@ if __name__ == '__main__':
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         logging.info("System Shutdown.")
+
 
