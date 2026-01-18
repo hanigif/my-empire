@@ -180,7 +180,8 @@ def get_board_decision(task):
         archive_and_save_production("LOGIC", f"logic_{ts}.py", logic)
         export_to_github(f"production/logic_{ts}.py", logic, f"Sovereign Update {ts}")
         
-       return f"🏛️ **تم الإنتاج بنجاح ({ts})**\n✅ تم الرفع لـ GitHub\n⚖️ تدقيق Gemini: مكتمل"
+        # ملاحظة: تأكد من وجود 8 مسافات بالضبط قبل كلمة return التالية
+        return f"🏛️ **تم الإنتاج بنجاح ({ts})**\n✅ تم الرفع لـ GitHub\n⚖️ تدقيق Gemini: مكتمل"
     except Exception as e:
         return f"❌ فشل المحرك: {str(e)}"
 
