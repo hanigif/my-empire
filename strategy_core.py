@@ -69,32 +69,43 @@ def keep_alive_pulse():
 
 def autonomous_factory_loop():
     global AUTO_PRODUCTION_COUNT
-    time.sleep(10) # تشغيل سريع للبدء
+    # تأخير بسيط للسماح للنظام بالاستقرار
+    time.sleep(30) 
     
-    # قائمة بقطاعات الصيد السويدية 2026
-    hunting_sectors = [
-        "Private healthcare clinics Stockholm compliance",
-        "Swedish insurance startups data sovereignty",
-        "Legal tech Sweden AI regulations 2026"
-    ]
+    # قطاعات حساسة للبيانات في السويد 2026
+    targets = ["Private Health Tech Stockholm", "Digital Mental Health Sweden", "Swedish FinTech Data Privacy"]
     
     while True:
-        sector = random.choice(hunting_sectors)
-        # 1. البحث عن "ضحية" (شركة تحتاج حلاً)
-        search_results = search_tool.run(f"List of emerging {sector} names")
-        
-        # 2. تكليف المدير السيادي بصياغة الحل والعرض
-        task_prompt = (
-            f"ابحث في هذه النتائج: {search_results}. اختر شركة واحدة حقيقية. "
-            f"صمم لها منتج 'Sovereign Bridge' للامتثال لقانون 2026. "
-            f"أعطني رسالة بيع (Sales Pitch) بالسويدية موجهة لمديرهم التقني."
-        )
-        
-        decision = get_board_decision(task_prompt)
-        logging.info(f"🎯 صيد جديد: {decision}")
-        
-        AUTO_PRODUCTION_COUNT += 1
-        time.sleep(3600) # جولة كل ساعة لاحترام الـ Quota
+        try:
+            target_sector = random.choice(targets)
+            logging.info(f"🔎 بدء جولة الصيد في قطاع: {target_sector}")
+            
+            # 1. البحث عن شركات حقيقية
+            raw_leads = search_tool.run(f"Top emerging {target_sector} companies 2026")
+            
+            # 2. صياغة العرض والحل (المنتج)
+            hunt_prompt = (
+                f"بناءً على هذه الشركات: {raw_leads}. اختر شركة واحدة محددة. "
+                f"صمم لها حل 'Sovereign-Shield' للامتثال لقانون Patientdatalagen 2026. "
+                f"اكتب رسالة Sales Pitch بالسويدية الاحترافية موجهة لمديرهم التقني (CTO). "
+                f"يجب أن يتضمن العرض أننا نقدم كود (Logic Bridge) يمنع تسرب البيانات للذكاء الاصطناعي الأمريكي."
+            )
+            
+            # تنفيذ المهمة عبر العقل السيادي
+            result = get_board_decision(hunt_prompt)
+            
+            # 3. توثيق الصيد في ملف خاص
+            ts = datetime.datetime.now(SWEDEN_TZ).strftime("%Y%m%d_%H%M")
+            archive_and_save_production("SALES_PITCH", f"pitch_{ts}.txt", result)
+            
+            AUTO_PRODUCTION_COUNT += 1
+            logging.info(f"✅ تم تجهيز عرض بيع جديد: {ts}")
+            
+        except Exception as e:
+            logging.error(f"❌ تعثر الصيد: {str(e)}")
+            
+        # جولة كل ساعة للحفاظ على الـ Quota
+        time.sleep(3600)
 
 # --- 4. وظائف الأرشفة والرفع لـ GitHub ---
 def export_to_github(filename, content, commit_message):
