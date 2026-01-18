@@ -69,20 +69,32 @@ def keep_alive_pulse():
 
 def autonomous_factory_loop():
     global AUTO_PRODUCTION_COUNT
-    time.sleep(120) 
-    auto_tasks = [
-        "تحسين معايير Patientdatalagen 2026 في الكود السيادي",
-        "تطوير خوارزميات تحليل البيانات الصحية السويدية المشفرة",
-        "تحديث بروتوكولات الامتثال لـ Socialstyrelsen"
+    time.sleep(10) # تشغيل سريع للبدء
+    
+    # قائمة بقطاعات الصيد السويدية 2026
+    hunting_sectors = [
+        "Private healthcare clinics Stockholm compliance",
+        "Swedish insurance startups data sovereignty",
+        "Legal tech Sweden AI regulations 2026"
     ]
+    
     while True:
-        task = random.choice(auto_tasks)
-        get_board_decision(f"AUTO_MODE: {task}")
+        sector = random.choice(hunting_sectors)
+        # 1. البحث عن "ضحية" (شركة تحتاج حلاً)
+        search_results = search_tool.run(f"List of emerging {sector} names")
+        
+        # 2. تكليف المدير السيادي بصياغة الحل والعرض
+        task_prompt = (
+            f"ابحث في هذه النتائج: {search_results}. اختر شركة واحدة حقيقية. "
+            f"صمم لها منتج 'Sovereign Bridge' للامتثال لقانون 2026. "
+            f"أعطني رسالة بيع (Sales Pitch) بالسويدية موجهة لمديرهم التقني."
+        )
+        
+        decision = get_board_decision(task_prompt)
+        logging.info(f"🎯 صيد جديد: {decision}")
+        
         AUTO_PRODUCTION_COUNT += 1
-        time.sleep(2460)
-
-threading.Thread(target=keep_alive_pulse, daemon=True).start()
-threading.Thread(target=autonomous_factory_loop, daemon=True).start()
+        time.sleep(3600) # جولة كل ساعة لاحترام الـ Quota
 
 # --- 4. وظائف الأرشفة والرفع لـ GitHub ---
 def export_to_github(filename, content, commit_message):
