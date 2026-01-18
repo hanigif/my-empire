@@ -67,18 +67,63 @@ def keep_alive_pulse():
         except Exception: pass
         time.sleep(600) 
 
+def send_telegram_message(message):
+    """دالة مساعدة لإرسال إشعارات الصيد فوراً لهاتفك"""
+    try:
+        # سنستخدم التوكين الموجود مسبقاً في كودك
+        token = "7987600648:AAFsGFuAqOandpZAwh1g1wia5zv6OutySdQ"
+        chat_id = "6168694801" # تأكد من أن هذا هو الـ ID الخاص بك
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        requests.post(url, json={"chat_id": chat_id, "text": message})
+    except Exception as e:
+        logging.error(f"❌ فشل إرسال إشعار تليجرام: {e}")
+
 def autonomous_factory_loop():
     global AUTO_PRODUCTION_COUNT
-    # تأخير بسيط للسماح للنظام بالاستقرار
-    time.sleep(30) 
+    time.sleep(20) # انتظار بسيط للاستقرار
     
-    # قطاعات حساسة للبيانات في السويد 2026
+    # قطاعات الصيد في السويد 2026
     targets = ["Private Health Tech Stockholm", "Digital Mental Health Sweden", "Swedish FinTech Data Privacy"]
     
     while True:
         try:
             target_sector = random.choice(targets)
-            logging.info(f"🔎 بدء جولة الصيد في قطاع: {target_sector}")
+            send_telegram_message(f"🔎 بدأت الآن رحلة البحث عن عملاء في قطاع: {target_sector}")
+            
+            # 1. البحث عن الشركات (الصيد)
+            search_query = f"top innovative {target_sector} companies Sweden 2026 list"
+            raw_leads = search_tool.run(search_query)
+            
+            # 2. تحليل وصناعة المنتج والعرض عبر المدير السيادي
+            hunt_prompt = (
+                f"بناءً على نتائج البحث: {raw_leads}. اختر شركة واحدة حقيقية في السويد. "
+                f"صمم لها حل 'Sovereign-Shield' للامتثال لقانون Patientdatalagen 2026. "
+                f"اكتب رسالة Sales Pitch بالسويدية احترافية موجهة لمديرهم التقني. "
+                f"يجب أن توضح أن الكود الخاص بنا يمنع تسرب البيانات للذكاء الاصطناعي خارج السويد."
+            )
+            
+            # استدعاء العقل السيادي لإنتاج الحل
+            result = get_board_decision(hunt_prompt)
+            
+            # 3. الأرشفة في GitHub وفي المجلد المحلي
+            ts = datetime.datetime.now(SWEDEN_TZ).strftime("%H%M")
+            filename = f"hunt_report_{ts}.txt"
+            
+            # حفظ الملف محلياً ولـ GitHub
+            archive_and_save_production("SALES", filename, result)
+            export_to_github(f"production/{filename}", result, f"New Lead Acquired: {ts}")
+            
+            AUTO_PRODUCTION_COUNT += 1
+            
+            # إشعار النجاح النهائي
+            send_telegram_message(f"🎯 تم اصطياد هدف بنجاح!\nالشركة: تفقد ملف {filename} في GitHub.")
+            
+        except Exception as e:
+            logging.error(f"❌ تعثر الصيد: {str(e)}")
+            time.sleep(600) # انتظار 10 دقائق في حال الخطأ
+            
+        # جولة كل ساعة لاحترام حدود الـ API
+        time.sleep(3600)
             
             # 1. البحث عن شركات حقيقية
             raw_leads = search_tool.run(f"Top emerging {target_sector} companies 2026")
