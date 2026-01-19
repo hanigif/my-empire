@@ -35,4 +35,5 @@ APScheduler==3.10.4
 requests
 httpx
 fpdf2
+qrcode
 
