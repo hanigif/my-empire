@@ -32,6 +32,13 @@ app = Flask(__name__)
 llm_backup = ChatGroq(temperature=0.1, model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY)
 search_tool = DuckDuckGoSearchRun()
 
+# --- المحركات الذكية ---
+try:
+    search_tool = DuckDuckGoSearchRun()
+except Exception as e:
+    logging.warning(f"⚠️ Search Tool Alert: {e}. Using fallback mode.")
+    search_tool = None # سيتم التعامل معه في دالة الصيد
+
 class Gemini2026Manager:
     def __init__(self, api_key):
         self.client = genai.Client(api_key=api_key)
@@ -121,3 +128,4 @@ if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=port, use_reloader=False), daemon=True).start()
     asyncio.run(main())
+
