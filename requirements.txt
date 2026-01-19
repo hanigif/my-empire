@@ -34,3 +34,5 @@ APScheduler==3.10.4
 # محركات الاتصال
 requests
 httpx
+fpdf2
+
