@@ -4,7 +4,6 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 from telegram.error import TimedOut, NetworkError
 from apscheduler.schedulers.background import BackgroundScheduler
-from github import Github 
 from google import genai 
 from langchain_groq import ChatGroq
 from langchain_community.tools import DuckDuckGoSearchRun
@@ -16,8 +15,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GK_KEY = os.environ.get("GROQ_API_KEY")
 GOOGLE_KEY = os.environ.get("GOOGLE_API_KEY")
-GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN") 
-REPO_NAME = "hanigif/Sovereign-Assets"
 MY_ID = 6758877303  
 SWEDEN_TZ = pytz.timezone('Europe/Stockholm')
 
@@ -25,7 +22,7 @@ app = Flask(__name__)
 EMPIRE_START_TIME = datetime.datetime.now(SWEDEN_TZ)
 HUNTING_LOG = []
 
-# --- 2. المحركات السيادية المدمجة (بدلاً من الملف الخارجي) ---
+# --- 2. المحركات الذكية ---
 llm_backup = ChatGroq(temperature=0.1, model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY)
 search_tool = DuckDuckGoSearchRun()
 
@@ -44,27 +41,45 @@ llm_gemini = Gemini2026Manager(GOOGLE_KEY) if GOOGLE_KEY else llm_backup
 
 def get_board_decision(task):
     res = llm_gemini.invoke([
-        SystemMessage(content="You are the Sovereign Compliance Manager 2026. Focus on Swedish Law."),
+        SystemMessage(content="You are the Senior Sovereign Compliance Manager 2026. Your goal is to identify Swedish companies facing massive IMY fines and provide a high-ticket solution."),
         HumanMessage(content=task)
     ])
     return res.content if hasattr(res, 'content') else str(res)
 
-# --- 3. نظام النبض والصيد الآلي ---
-def auto_learning_cycle():
-    now = datetime.datetime.now(SWEDEN_TZ).strftime('%H:%M:%S')
-    logging.info(f"[*] نبضة سيادية دورية: {now}")
+# --- 3. محرك الصيد الاستخباراتي (Targeting & Fines) ---
+def deep_sovereign_hunting():
+    now = datetime.datetime.now(SWEDEN_TZ).strftime('%H:%M')
+    logging.info(f"[*] تفعيل الرادار للبحث عن الشركات المتضررة: {now}")
     try:
-        # البحث عن شركة سويدية حقيقية تعاني من مشاكل بيانات
-        sector = random.choice(["MedTech Stockholm", "Fintech Sweden"])
-        raw_data = search_tool.run(f"Swedish {sector} companies 2026 GDPR privacy challenges")
-        result = get_board_decision(f"Analyze this data and find one company to target: {raw_data[:1000]}")
-        HUNTING_LOG.append(f"[{now}] تم فحص: {sector}")
-        if len(HUNTING_LOG) > 10: HUNTING_LOG.pop(0)
+        # البحث عن شركات سويدية تعاني من ثغرات قانونية حقيقية
+        query = "Swedish companies data privacy fines 2025 2026 IMY Schrems III compliance gap"
+        raw_results = search_tool.run(query)
+        
+        analysis_prompt = f"""
+        Analyze this: {raw_results[:1500]}
+        Find ONE real Swedish company (Private or Tech) facing major data compliance risks.
+        Provide:
+        1. Company Name.
+        2. Legal Vulnerability (Detailed).
+        3. Potential Fine/Loss.
+        4. Proposed Solution (Sovereign Manager).
+        5. Professional Pitch in Swedish.
+        Language: Arabic for analysis, Swedish for the pitch.
+        """
+        
+        report = get_board_decision(analysis_prompt)
+        
+        # إرسال التقرير فوراً للقائد
+        requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", 
+                      json={"chat_id": MY_ID, "text": f"🎯 **هدف سيادي مرصود!**\n\n{report}"})
+        
+        HUNTING_LOG.append(f"[{now}] تم رصد هدف متضرر")
     except Exception as e:
-        logging.error(f"Auto Cycle Error: {e}")
+        logging.error(f"Hunting Error: {e}")
 
 scheduler = BackgroundScheduler(daemon=True, timezone=SWEDEN_TZ)
-scheduler.add_job(func=auto_learning_cycle, trigger="interval", hours=1)
+# البحث التلقائي كل 3 ساعات
+scheduler.add_job(func=deep_sovereign_hunting, trigger="interval", hours=3)
 scheduler.start()
 
 # --- 4. معالجة رسائل القائد ---
@@ -72,8 +87,13 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or update.effective_user.id != MY_ID: return
     task = update.message.text.strip()
     
+    if task == "اصطاد":
+        await update.message.reply_text("⚖️ جاري تشغيل الرادار السيادي للبحث عن أكثر الشركات تضرراً...")
+        threading.Thread(target=deep_sovereign_hunting).start()
+        return
+    
     if task.lower() in ["اختبار", "test lab"]:
-        await update.message.reply_text("⚖️ جاري تشغيل المختبر السيادي... النظام مستقر.")
+        await update.message.reply_text("⚖️ المختبر السيادي مستقر وجاهز.")
         return
 
     await update.message.reply_text("⚖️ جاري استشارة العقول السيادية...")
@@ -83,7 +103,7 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"⚠️ عطل فني: {str(e)[:50]}")
 
-# --- 5. بوابة الويب (التصميم الاحترافي الذي اخترته) ---
+# --- 5. بوابة الويب (التصميم الخاص بك) ---
 @app.route('/')
 def home():
     now_sw = datetime.datetime.now(SWEDEN_TZ).strftime('%Y-%m-%d %H:%M:%S')
@@ -104,24 +124,23 @@ def home():
     <body>
         <div class="hero">
             <h1>SOVEREIGN GATE</h1>
-            <p style="font-size:1.2em; color:#888;">تأمين بيانات الرعاية الصحية السويدية 2026. امتثال سيادي كامل.</p>
+            <p style="font-size:1.2em; color:#888;">نظام رصد الامتثال والبيانات السيادية السويدية 2026.</p>
             <a href="https://t.me/Htestai" style="background:#00ff41; color:#000; padding:15px 30px; text-decoration:none; font-weight:bold; border-radius:5px;">دخول غرفة العمليات</a>
         </div>
         <div style="padding: 50px;">
-            <div class="card"><h3>🛡️ حراسة البيانات</h3><p>تشفير محلي سيادي متوافق مع قوانين 2026.</p></div>
-            <div class="card"><h3>⚖️ تدقيق آلي</h3><p>مراقبة حية للشركات السويدية وثغرات الامتثال.</p></div>
+            <div class="card"><h3>🎯 رادار الأهداف</h3><p>البحث عن الشركات المتضررة من قوانين البيانات الجديدة.</p></div>
+            <div class="card"><h3>⚖️ حلول 2026</h3><p>تشفير سيادي يمنع الغرامات المليونية لـ IMY.</p></div>
         </div>
-        <div class="status-footer">SYSTEM_STATUS: ACTIVE | TIME: {now_sw}</div>
+        <div class="status-footer">SYSTEM_STATUS: ACTIVE | RADAR: SCANNING | {now_sw}</div>
     </body>
     </html>
     """
 
-# --- 6. محرك الإقلاع الصامد ---
+# --- 6. محرك الإقلاع ---
 async def main():
     application = ApplicationBuilder().token(TOKEN).build()
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_msg))
     
-    # محاولة التشغيل مع تخطي أخطاء الشبكة
     for i in range(3):
         try:
             await application.bot.delete_webhook(drop_pending_updates=True)
@@ -131,7 +150,6 @@ async def main():
             logging.info("🚀 الإمبراطورية تعمل!")
             break
         except: 
-            logging.warning("إعادة محاولة الاتصال...")
             await asyncio.sleep(5)
     
     while True: await asyncio.sleep(1)
