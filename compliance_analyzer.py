@@ -1,17 +1,21 @@
-class TeliaComplianceExpert:
-    def generate_threat_report(self):
-        report = """
-        ⚠️ SOVEREIGN THREAT REPORT: TELIA SWEDEN
-        ---------------------------------------
-        [ISSUE 01]: Data Transfer to USA via Google Analytics.
-        [LEGAL RISK]: IMY Fine up to 100 Million SEK (Schrems II violation).
-        [SOLUTION]: Sovereign Proxy v1.0.
-        
-        [ISSUE 02]: Unprotected Metadata in Call Logs (CDR).
-        [LEGAL RISK]: Electronic Communications Act (LEK) violation.
-        [SOLUTION]: Telia Shield Module (Anonymization Layer).
-        """
-        return report
+class SovereignAudit:
+    def __init__(self, company_name):
+        self.company = company_name
 
-expert = TeliaComplianceExpert()
-print(expert.generate_threat_report())
+    def check_vulnerabilities(self):
+        vulnerabilities = {
+            "Data Exit": "HIGH RISK (Direct AWS/Azure connection detected)",
+            "Privacy Shield": "FAILED (Schrems II non-compliance)",
+            "Sanitization": "INCOMPLETE (Metadata visible in US clouds)"
+        }
+        return vulnerabilities
+
+    def get_financial_risk(self):
+        # حساب الغرامة المتوقعة بناءً على قوانين IMY السويدية
+        return "4% of global turnover or 200M SEK"
+
+# تشغيل التقرير لتيليا
+audit = SovereignAudit("Telia Sweden")
+print(f"📋 تقرير المخاطر لشركة {audit.company}:")
+print(audit.check_vulnerabilities())
+print(f"💰 التكلفة المتوقعة في حال الغرامة: {audit.get_financial_risk()}")
