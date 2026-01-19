@@ -21,7 +21,8 @@ langchain-google-genai>=2.0.0
 langchain-community
 
 # البحث والأدوات
-duckduckgo-search==6.3.0
+ddgs
+duckduckgo-search
 googlesearch-python
 PyGithub
 
@@ -32,3 +33,4 @@ APScheduler==3.10.4
 # محركات الاتصال
 requests
 httpx
+
