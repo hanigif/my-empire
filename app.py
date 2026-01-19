@@ -9,6 +9,7 @@ from langchain_groq import ChatGroq
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_core.messages import HumanMessage, SystemMessage
 from cryptography.fernet import Fernet
+import pyotp # طبقة التحقق الزمني
 
 # --- 1. الإعدادات الأساسية والسيادية ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -19,25 +20,26 @@ GOOGLE_KEY = os.environ.get("GOOGLE_API_KEY")
 MY_ID = 6758877303  
 SWEDEN_TZ = pytz.timezone('Europe/Stockholm')
 
-# نظام التشفير السيادي
+# نظام التشفير والتحقق السيادي
 S_KEY = os.environ.get("SOVEREIGN_KEY")
 if not S_KEY:
     S_KEY = Fernet.generate_key().decode()
     logging.warning(f"⚠️ Generated New Key: {S_KEY}")
 cipher_suite = Fernet(S_KEY.encode())
 
+# مفتاح التزامن السري (يجب أن يكون متطابقاً في الدرع والنواة)
+TOTP_SECRET = os.environ.get("TOTP_SECRET", "JBSWY3DPEHPK3PXP")
+totp_verifier = pyotp.TOTP(TOTP_SECRET, interval=1) # صلاحية الكود ثانية واحدة فقط
+
 app = Flask(__name__)
 
 # --- 2. المحركات الذكية (Multi-Brain System) ---
 llm_backup = ChatGroq(temperature=0.1, model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY)
-search_tool = DuckDuckGoSearchRun()
-
-# --- المحركات الذكية ---
 try:
     search_tool = DuckDuckGoSearchRun()
 except Exception as e:
-    logging.warning(f"⚠️ Search Tool Alert: {e}. Using fallback mode.")
-    search_tool = None # سيتم التعامل معه في دالة الصيد
+    logging.warning(f"⚠️ Search Tool Alert: {e}")
+    search_tool = None
 
 class Gemini2026Manager:
     def __init__(self, api_key):
@@ -71,7 +73,7 @@ def sovereign_vault_process(raw_data):
 def deep_sovereign_hunting():
     try:
         query = "Swedish companies data privacy fines 2025 IMY compliance gap"
-        raw_results = search_tool.run(query)
+        raw_results = search_tool.run(query) if search_tool else "No search tool available"
         analysis_prompt = f"Analyze and find ONE Swedish company to target from this: {raw_results[:1000]}"
         report = get_board_decision(analysis_prompt)
         requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", 
@@ -83,7 +85,7 @@ scheduler = BackgroundScheduler(daemon=True, timezone=SWEDEN_TZ)
 scheduler.add_job(func=deep_sovereign_hunting, trigger="interval", hours=3)
 scheduler.start()
 
-# --- 5. واجهة الويب والـ API ---
+# --- 5. واجهة الويب والـ API مع التحقق الزمني ---
 @app.route('/')
 def home():
     now_sw = datetime.datetime.now(SWEDEN_TZ).strftime('%Y-%m-%d %H:%M:%S')
@@ -91,6 +93,13 @@ def home():
 
 @app.route('/api/v1/protect', methods=['POST'])
 def protect_api():
+    # التحقق من "المفتاح المتغير" في الهيدر
+    client_token = request.headers.get('X-Sovereign-Token')
+    
+    if not client_token or not totp_verifier.verify(client_token):
+        logging.warning(f"🚫 Unauthorized Access Attempt! Token: {client_token}")
+        return jsonify({"error": "Security Breach: Invalid or Expired Token"}), 401
+
     incoming = request.json.get("payload")
     if not incoming: return jsonify({"error": "Empty"}), 400
     try:
@@ -121,11 +130,10 @@ async def main():
     await application.start()
     await application.updater.start_polling(drop_pending_updates=True)
     
-    logging.info("🚀 الإمبراطورية تعمل!")
+    logging.info("🚀 الإمبراطورية تعمل بمستوى أمان TOTP!")
     while True: await asyncio.sleep(1)
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=port, use_reloader=False), daemon=True).start()
     asyncio.run(main())
-
