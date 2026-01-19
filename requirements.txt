@@ -4,6 +4,9 @@ hypercorn
 pytz
 python-dotenv
 
+# التشفير والسيادة الرقمية (إضافة ضرورية للمنتج)
+cryptography
+
 # تحليل البيانات والرسوم
 pandas
 numpy
@@ -20,7 +23,6 @@ langchain-community
 # البحث والأدوات
 duckduckgo-search==6.3.0
 googlesearch-python
-ddgs
 PyGithub
 
 # التواصل والجدولة
