@@ -1,20 +1,34 @@
 import requests
+import re
 
 class TeliaSovereignShield:
-    def __init__(self, proxy_url):
-        self.proxy_url = proxy_url # رابط البوت على Render
+    def __init__(self, core_url):
+        self.core_url = f"{core_url}/api/v1/protect"
 
-    def protect_telecom_data(self, raw_cdr_data):
-        # CDR = Call Detail Record (أخطر بيانات عند تيليا)
-        payload = {
-            "payload": raw_cdr_data
-        }
-        # استدعاء المحرك الأساسي لتنفيذ التشفير السيادي
-        response = requests.post(f"{self.proxy_url}/api/v1/protect", json=payload)
-        return response.json()
+    def anonymize_telecom_logic(self, text):
+        # 1. إزالة أرقام الهواتف السويدية وتشفير نمطها
+        text = re.sub(r'(\+46|0)7[02369]\d{7}', '[SWEDISH_PHONE_SECURED]', text)
+        # 2. إزالة أرقام الـ IP
+        text = re.sub(r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', '[IP_ANONYMIZED]', text)
+        return text
 
-# مثال للتشغيل (Demo لتيليا)
-shield = TeliaSovereignShield("https://your-bot-name.onrender.com")
-sample_data = "Phone: +46701234567, Location: Stockholm Tower 4, Status: Active"
-protected = shield.protect_telecom_data(sample_data)
-print(f"🔒 السيادة الرقمية لتيليا: {protected}")
+    def protect_and_log(self, raw_data):
+        # تطهير محلي أولاً قبل إرساله للمحرك (سيادة مزدوجة)
+        clean_data = self.anonymize_telecom_logic(raw_data)
+        
+        try:
+            response = requests.post(self.core_url, json={"payload": clean_data})
+            return response.json()
+        except:
+            return {"error": "Connection to Sovereign Core failed"}
+
+# --- محاكاة نظام تيليا الحقيقي ---
+shield = TeliaSovereignShield("https://your-app-name.onrender.com")
+test_batch = [
+    "Call from 0701234567 to 0769876543 duration 5min IP: 192.168.1.1",
+    "User location: Tower_Stockholm_Central_5, ID: 19900101-1234"
+]
+
+for data in test_batch:
+    result = shield.protect_and_log(data)
+    print(f"Original: {data}\nSovereign Output: {result}\n")
