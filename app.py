@@ -7,6 +7,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from github import Github 
 from google import genai 
 from langchain_groq import ChatGroq
+from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_core.messages import HumanMessage, SystemMessage
 
 # --- 1. الإعدادات الأساسية والرموز السيادية ---
@@ -25,8 +26,9 @@ EMPIRE_START_TIME = datetime.datetime.now(SWEDEN_TZ)
 AUTO_PRODUCTION_COUNT = 0
 HUNTING_LOG = []
 
-# --- 2. المحرك السيادي المدمج (لضمان عدم حدوث ImportError) ---
+# --- 2. المحركات السيادية (تعدد العقول) ---
 llm_backup = ChatGroq(temperature=0.1, model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY)
+search_tool = DuckDuckGoSearchRun()
 
 class Gemini2026Manager:
     def __init__(self, api_key):
@@ -49,112 +51,94 @@ class Gemini2026Manager:
 llm_gemini = Gemini2026Manager(GOOGLE_KEY) if GOOGLE_KEY else llm_backup
 
 def get_board_decision(task):
-    """صنع القرار السيادي"""
     res = llm_gemini.invoke([
-        SystemMessage(content="You are the Sovereign Compliance Manager. Solve for Swedish companies privacy 2026."),
+        SystemMessage(content="You are the Sovereign Compliance Manager. Analyze strictly for Swedish laws 2026."),
         HumanMessage(content=task)
     ])
     return res.content if hasattr(res, 'content') else str(res)
 
-# --- 3. نظام النبض والتدقيق الآلي ---
-def auto_learning_cycle():
-    global AUTO_PRODUCTION_COUNT
-    now = datetime.datetime.now(SWEDEN_TZ).strftime('%H:%M:%S')
-    logging.info(f"[*] نبضة سيادية دورية: {now}")
+# --- 3. وظيفة التصدير لـ GitHub ---
+def export_asset_to_github(content, filename):
     try:
-        # محاكاة التدقيق أو البحث عن عملاء
-        result = get_board_decision("AUTO_AUDIT: بحث عن ثغرات امتثال في شركات ستوكهولم لعام 2026")
-        HUNTING_LOG.append(f"[{now}] تدقيق دوري ناجح.")
-        if len(HUNTING_LOG) > 20: HUNTING_LOG.pop(0)
+        g = Github(GITHUB_TOKEN)
+        repo = g.get_repo(REPO_NAME)
+        ts = datetime.datetime.now(SWEDEN_TZ).strftime("%Y-%m-%d %H:%M")
+        repo.create_file(f"assets/{filename}", f"Sovereign Asset {ts}", content)
+        return True
     except Exception as e:
-        logging.error(f"[!] تنبيه في الدورة الآلية: {e}")
+        logging.error(f"GitHub Export Error: {e}")
+        return False
 
+# --- 4. نظام الصيد والتعلم الآلي (Autonomous Hunting) ---
+def auto_hunting_cycle():
+    global AUTO_PRODUCTION_COUNT
+    now_ts = datetime.datetime.now(SWEDEN_TZ).strftime('%H:%M')
+    logging.info(f"[*] جولة الصيد السيادي بدأت: {now_ts}")
+    
+    sectors = ["MedTech Stockholm", "Fintech Gothenburg", "E-health Sweden"]
+    target_sector = random.choice(sectors)
+    
+    try:
+        # البحث عن شركات حقيقية تواجه مشاكل امتثال
+        raw_data = search_tool.run(f"Innovative {target_sector} companies 2026 data privacy challenges")
+        
+        prompt = f"Based on this data: {raw_data[:2000]}. Identify ONE real company and write a 'Sovereign Compliance Audit' in SWEDISH. Focus on 2026 laws."
+        result = get_board_decision(prompt)
+        
+        filename = f"Audit_{target_sector.replace(' ', '_')}_{now_ts.replace(':', '')}.md"
+        if export_asset_to_github(result, filename):
+            AUTO_PRODUCTION_COUNT += 1
+            HUNTING_LOG.append(f"[{now_ts}] صيد ناجح: {target_sector}")
+            # إرسال تنبيه للقائد
+            requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", 
+                          json={"chat_id": MY_ID, "text": f"🎯 **صيد سيادي جديد!**\n📂 تم فحص قطاع: {target_sector}\n📄 الملف: {filename}"})
+    except Exception as e:
+        logging.error(f"Hunting Cycle Error: {e}")
+
+# المجدول الزمني (كل ساعتين جولة صيد)
 scheduler = BackgroundScheduler(daemon=True, timezone=SWEDEN_TZ)
-scheduler.add_job(func=auto_learning_cycle, trigger="interval", hours=1)
+scheduler.add_job(func=auto_hunting_cycle, trigger="interval", hours=2)
 scheduler.start()
 
-# --- 4. معالجة رسائل القائد ---
+# --- 5. معالجة رسائل القائد ---
 async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or update.effective_user.id != MY_ID: 
-        return
-    
+    if not update.message or update.effective_user.id != MY_ID: return
     task = update.message.text.strip()
     
-    # صمام أمان المختبر السيادي
-    if task.lower() in ["اختبار", "test lab"]:
-        await update.message.reply_text("⚖️ جاري تشغيل المختبر السيادي الداخلي...")
-        response = f"✅ المختبر يعمل بكفاءة.\n⏰ الوقت: {datetime.datetime.now(SWEDEN_TZ).strftime('%H:%M:%S')}\n🛡️ الحالة: محمية"
-        await update.message.reply_text(response)
+    if task.lower() in ["اختبار", "test"]:
+        await update.message.reply_text("⚖️ المختبر يعمل بكفاءة. النظام السيادي مستقر.")
         return
 
-    await update.message.reply_text("⚖️ جاري استشارة العقول السيادية (Gemini & Llama)...")
-    
-    try:
-        response = get_board_decision(task)
-        await update.message.reply_text(response)
-    except Exception as e:
-        logging.error(f"Technical Error: {e}")
-        await update.message.reply_text(f"⚠️ عطل فني: {str(e)[:100]}")
+    await update.message.reply_text("⚖️ جاري استشارة العقول السيادية...")
+    response = get_board_decision(task)
+    await update.message.reply_text(response)
 
-# --- 5. بوابة الويب (The Sovereign Gate) ---
+# --- 6. بوابة الويب (Sovereign Gate) ---
 @app.route('/')
 def home():
-    try:
-        now_sweden = datetime.datetime.now(SWEDEN_TZ).strftime('%Y-%m-%d %H:%M:%S')
-        uptime = str(datetime.datetime.now(SWEDEN_TZ) - EMPIRE_START_TIME).split('.')[0]
-        return f"""
-        <!DOCTYPE html>
-        <html lang="ar" dir="rtl">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Sovereign Gate | 2026 Compliance</title>
-            <style>
-                body {{ background-color: #050505; color: #f0f0f0; font-family: sans-serif; margin: 0; padding: 0; text-align: center; }}
-                .hero {{ padding: 80px 20px; background: radial-gradient(circle, #0d1a0d 0%, #050505 100%); border-bottom: 1px solid #1a331a; }}
-                h1 {{ color: #00ff41; font-size: 3em; text-shadow: 0 0 15px rgba(0,255,65,0.4); }}
-                .tagline {{ color: #888; margin: 20px auto; max-width: 600px; }}
-                .features {{ display: flex; justify-content: center; gap: 20px; padding: 40px; flex-wrap: wrap; }}
-                .card {{ background: #111; border: 1px solid #1a1a1a; padding: 20px; width: 250px; border-radius: 10px; text-align: right; }}
-                .status-footer {{ background: #000; padding: 10px; font-family: monospace; color: #00ff41; border-top: 1px solid #1a331a; position: fixed; bottom: 0; width: 100%; }}
-            </style>
-        </head>
-        <body>
-            <div class="hero">
-                <h1>SOVEREIGN GATE</h1>
-                <p class="tagline">تأمين بيانات الرعاية الصحية السويدية لعام 2026. امتثال كامل بلمسة تقنية سيادية.</p>
-                <div style="color:#00ff41; margin-top:10px;">UPTIME: {uptime}</div>
-            </div>
-            <div class="features">
-                <div class="card"><h3>🛡️ حراسة البيانات</h3><p>تشفير محلي سيادي يمنع التسرب السحابي.</p></div>
-                <div class="card"><h3>⚖️ تدقيق 2026</h3><p>مراقبة آلية للتحديثات التشريعية السويدية.</p></div>
-            </div>
-            <div class="status-footer">SYSTEM_STATUS: ACTIVE | SWEDEN_TIME: {now_sweden}</div>
-        </body>
-        </html>
-        """
-    except Exception as e:
-        return f"System Online - Web UI Error: {str(e)[:50]}"
+    uptime = str(datetime.datetime.now(SWEDEN_TZ) - EMPIRE_START_TIME).split('.')[0]
+    return {
+        "status": "SOVEREIGN_SYSTEM_ACTIVE",
+        "produced_assets": AUTO_PRODUCTION_COUNT,
+        "uptime": uptime,
+        "sweden_time": datetime.datetime.now(SWEDEN_TZ).strftime('%Y-%m-%d %H:%M:%S'),
+        "recent_activity": HUNTING_LOG[-5:]
+    }
 
-# --- 6. محرك الإقلاع (Main Loop) ---
-async def main():
-    if not TOKEN:
-        logging.error("❌ TELEGRAM_TOKEN مفقود!")
-        return
-
+# --- 7. محرك الإقلاع ---
+async def main_bot():
     application = ApplicationBuilder().token(TOKEN).build()
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_msg))
+    await application.bot.delete_webhook(drop_pending_updates=True)
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling(drop_pending_updates=True)
+    while True: await asyncio.sleep(1)
 
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=port, use_reloader=False), daemon=True).start()
     try:
-        await application.bot.delete_webhook(drop_pending_updates=True)
-        await application.initialize()
-        await application.start()
-        await application.updater.start_polling(drop_pending_updates=True)
-        logging.info("🚀 تم تشغيل الإمبراطورية بنجاح!")
-        
-        while True:
-            await asyncio.sleep(1)
-    except Exception as e:
-        logging.error(f"Critical Boot Error: {e}")
-
-if __name__ ==
+        asyncio.run(main_bot())
+    except (KeyboardInterrupt, SystemExit):
+        logging.info("Shutdown.")
