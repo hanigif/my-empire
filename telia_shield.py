@@ -1,34 +1,42 @@
 import requests
 import re
+import json
 
 class TeliaSovereignShield:
     def __init__(self, core_url):
-        self.core_url = f"{core_url}/api/v1/protect"
+        # تأكد من وضع رابط الـ Render الخاص بك هنا
+        self.core_api = f"{core_url}/api/v1/protect"
 
-    def anonymize_telecom_logic(self, text):
-        # 1. إزالة أرقام الهواتف السويدية وتشفير نمطها
-        text = re.sub(r'(\+46|0)7[02369]\d{7}', '[SWEDISH_PHONE_SECURED]', text)
-        # 2. إزالة أرقام الـ IP
-        text = re.sub(r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', '[IP_ANONYMIZED]', text)
-        return text
+    def local_sanitize(self, raw_text):
+        """الطبقة الأولى: التطهير المحلي الفوري قبل الخروج للسحابة"""
+        # إخفاء الهويات السويدية (Personnummer)
+        raw_text = re.sub(r'\d{8}-\d{4}', '[CONFIDENTIAL_ID]', raw_text)
+        # إخفاء أرقام الهواتف
+        raw_text = re.sub(r'(\+46|0)7\d{8}', '[PHONE_LOCKED]', raw_text)
+        return raw_text
 
-    def protect_and_log(self, raw_data):
-        # تطهير محلي أولاً قبل إرساله للمحرك (سيادة مزدوجة)
-        clean_data = self.anonymize_telecom_logic(raw_data)
-        
+    def secure_transmission(self, data):
+        clean_data = self.local_sanitize(data)
         try:
-            response = requests.post(self.core_url, json={"payload": clean_data})
-            return response.json()
-        except:
-            return {"error": "Connection to Sovereign Core failed"}
+            response = requests.post(self.core_api, json={"payload": clean_data})
+            if response.status_code == 200:
+                return response.json().get("data")
+            return "Error: Encryption Core Unreachable"
+        except Exception as e:
+            return f"Critical Failure: {str(e)}"
 
-# --- محاكاة نظام تيليا الحقيقي ---
-shield = TeliaSovereignShield("https://your-app-name.onrender.com")
-test_batch = [
-    "Call from 0701234567 to 0769876543 duration 5min IP: 192.168.1.1",
-    "User location: Tower_Stockholm_Central_5, ID: 19900101-1234"
-]
+# --- تجربة حية لـ Telia ---
+if __name__ == "__main__":
+    shield = TeliaSovereignShield("https://my-empire.onrender.com") # رابط سيرفرك
+    
+    # عينة بيانات حقيقية لتيليا (سجلات مكالمات ومواقع)
+    telia_logs = [
+        "User: Anna Berg, PersonalID: 19850512-4432, Call to: 0708123456, Tower: GBG_South",
+        "Log: 192.168.10.5, Device: Nokia_Gateway, Location: Stockholm_Kista"
+    ]
 
-for data in test_batch:
-    result = shield.protect_and_log(data)
-    print(f"Original: {data}\nSovereign Output: {result}\n")
+    print("🚀 بدء المعالجة السيادية لشركة تيليا...")
+    for log in telia_logs:
+        secured_result = shield.secure_transmission(log)
+        print(f"\n[RAW]: {log}")
+        print(f"[SECURED]: {secured_result}")
