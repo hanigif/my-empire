@@ -67,20 +67,37 @@ def sovereign_vault_process(raw_data):
     encrypted = cipher_suite.encrypt(clean_text.encode())
     return encrypted.decode()
 
-# --- 4. رادار الصيد ---
+# --- 4. رادار الصيد (Sovereign Intelligence Radar) ---
 def deep_sovereign_hunting():
     try:
-        query = "Swedish companies data privacy fines 2025 IMY compliance gap"
-        raw_results = search_tool.run(query) if search_tool else "No search tool"
-        report = get_board_decision(f"Analyze: {raw_results[:1000]}")
+        # البحث عن الشركات السويدية التي وقعت في فخ الغرامات في 2025/2026
+        query = "Sweden IMY privacy fines 2025 2026 news companies compliance"
+        raw_results = search_tool.run(query) if search_tool else "No search tool available"
+        
+        # صياغة رسالة "الضربة القاضية" التسويقية
+        analysis_prompt = f"""
+        Analyze these Swedish news results: {raw_results[:2000]}
+        1. Identify ONE real Swedish company recently fined or criticized by IMY (Integritetsskyddsmyndigheten).
+        2. Calculate the 'Sovereign Loss' (how much they lost).
+        3. Write a high-level sales pitch in SWEDISH for their CTO/CEO.
+        4. Explain how our 'Sovereign Data Compliance Agent' with TOTP and Local Sanitization would have prevented this disaster.
+        
+        Format the output as follows:
+        🎯 TARGET: [Company Name]
+        💰 LOSS: [Fine Amount]
+        🛡️ OUR SHIELD: [Technical Solution]
+        ✉️ SWEDISH PITCH: [Professional Message]
+        """
+        
+        report = get_board_decision(analysis_prompt, sys_msg="You are a Senior Sovereign Sales Strategist.")
+        
+        # إرسال التقرير فوراً إلى هاني
+        message = f"🚨 **تقرير اقتناص سيادي (عالي السرية):**\n\n{report}"
         requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", 
-                      json={"chat_id": MY_ID, "text": f"🎯 **هدف سيادي جديد:**\n\n{report}"})
+                      json={"chat_id": MY_ID, "text": message})
+                      
     except Exception as e:
         logging.error(f"Hunting Error: {e}")
-
-scheduler = BackgroundScheduler(daemon=True, timezone=SWEDEN_TZ)
-scheduler.add_job(func=deep_sovereign_hunting, trigger="interval", hours=3)
-scheduler.start()
 
 # --- 5. واجهة الويب والـ API ---
 @app.route('/')
@@ -145,3 +162,4 @@ async def main():
 if __name__ == '__main__':
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=PORT, use_reloader=False), daemon=True).start()
     asyncio.run(main())
+
