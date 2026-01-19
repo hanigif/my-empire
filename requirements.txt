@@ -4,8 +4,9 @@ hypercorn
 pytz
 python-dotenv
 
-# التشفير والسيادة الرقمية (إضافة ضرورية للمنتج)
+# التشفير والسيادة الرقمية
 cryptography
+pyotp
 
 # تحليل البيانات والرسوم
 pandas
@@ -13,7 +14,7 @@ numpy
 plotly
 yfinance
 
-# الذكاء الاصطناعي (المحركات السيادية)
+# الذكاء الاصطناعي
 google-genai>=1.0.0
 langchain-groq>=0.1.0
 langchain-core
@@ -33,4 +34,3 @@ APScheduler==3.10.4
 # محركات الاتصال
 requests
 httpx
-
