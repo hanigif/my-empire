@@ -1,4 +1,4 @@
-import os, threading, asyncio, logging, datetime, pytz, time, requests, random
+import os, threading, asyncio, logging, datetime, pytz, time, requests, sqlite3, json, random
 from flask import Flask, request, jsonify
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
@@ -22,217 +22,177 @@ GOOGLE_KEY = os.environ.get("GOOGLE_API_KEY")
 MY_ID = 6758877303  
 SWEDEN_TZ = pytz.timezone('Europe/Stockholm')
 
-S_KEY = os.environ.get("SOVEREIGN_KEY")
-if not S_KEY:
-    S_KEY = Fernet.generate_key().decode()
+S_KEY = os.environ.get("SOVEREIGN_KEY", Fernet.generate_key().decode())
 cipher_suite = Fernet(S_KEY.encode())
 
 TOTP_SECRET = os.environ.get("TOTP_SECRET", "JBSWY3DPEHPK3PXP")
 totp_verifier = pyotp.TOTP(TOTP_SECRET, interval=1)
 
-# --- 2. الذاكرة السيادية (Sovereign Memory) ---
+# --- 2. قاعدة البيانات والذاكرة (Sovereign DB & Memory) ---
+def init_db():
+    conn = sqlite3.connect('sovereign.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS targets 
+                 (id INTEGER PRIMARY KEY, company TEXT, country TEXT, fine TEXT, date TEXT)''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
 class SovereignMemory:
     def __init__(self):
         self.total_protected = 0
         self.threats_blocked = 0
         self.start_time = datetime.datetime.now(SWEDEN_TZ)
-
     def add_protected(self): self.total_protected += 1
     def add_threat(self): self.threats_blocked += 1
 
 sov_memory = SovereignMemory()
 
-app = Flask(__name__)
-PORT = int(os.environ.get("PORT", 10000))
-
-# --- 3. المحركات الذكية ---
+# --- 3. المحركات الذكية (AI Engines) ---
 llm_backup = ChatGroq(temperature=0.1, model_name="llama-3.3-70b-versatile", groq_api_key=GK_KEY)
-try:
-    search_tool = DuckDuckGoSearchRun()
-except Exception:
-    search_tool = None
+search_tool = DuckDuckGoSearchRun()
 
-class Gemini2026Manager:
+class SovereignAI:
     def __init__(self, api_key):
         self.client = genai.Client(api_key=api_key)
         self.model_id = "gemini-2.0-flash"
-    def invoke(self, messages):
-        prompt = messages[-1].content if isinstance(messages, list) else str(messages)
+    
+    def ask(self, prompt, system_msg="You are the Sovereign Manager."):
         try:
-            response = self.client.models.generate_content(model=self.model_id, contents=prompt)
-            return type('Response', (object,), {'content': response.text})
-        except Exception:
-            return llm_backup.invoke(messages)
+            res = self.client.models.generate_content(
+                model=self.model_id, 
+                contents=f"System: {system_msg}\nUser: {prompt}"
+            )
+            return res.text
+        except:
+            res = llm_backup.invoke([SystemMessage(content=system_msg), HumanMessage(content=prompt)])
+            return res.content
 
-llm_gemini = Gemini2026Manager(GOOGLE_KEY) if GOOGLE_KEY else llm_backup
+ai_engine = SovereignAI(GOOGLE_KEY)
 
-def get_board_decision(task, sys_msg="You are the Senior Sovereign Compliance Manager 2026."):
-    res = llm_gemini.invoke([SystemMessage(content=sys_msg), HumanMessage(content=task)])
-    return res.content if hasattr(res, 'content') else str(res)
+# --- 4. محرك التقارير الاستراتيجي (Sovereign PDF) ---
+class SovereignPDF(FPDF):
+    def header(self):
+        self.set_fill_color(15, 23, 42)
+        self.rect(0, 0, 210, 35, 'F')
+        self.set_font("Arial", 'B', 20)
+        self.set_text_color(255, 255, 255)
+        self.cell(0, 15, "SOVEREIGN STRATEGIC AUDIT", ln=True, align='C')
+        self.set_font("Arial", 'I', 10)
+        self.cell(0, 5, "Confidential Intelligence Report", ln=True, align='C')
 
-def sovereign_vault_process(raw_data):
-    clean_text = get_board_decision(
-        f"Anonymize this data, remove IDs: {raw_data}",
-        sys_msg="You are a Data Sanitizer. Return ONLY the safe text."
-    )
-    encrypted = cipher_suite.encrypt(clean_text.encode())
-    return encrypted.decode()
+    def footer(self):
+        self.set_y(-25)
+        self.set_font("Arial", 'I', 8)
+        self.set_text_color(100)
+        self.cell(0, 10, f"Sovereign Manager Core 2026 | Page {self.page_no()}", align='C')
 
-# --- 4. محرك التقارير ورادار الصيد (PDF & Hunting) ---
-
-def generate_sovereign_pdf(target_info):
-    pdf = FPDF()
+def create_rich_report(analysis_data):
+    pdf = SovereignPDF()
     pdf.add_page()
-    
-    # 1. Header Area
-    pdf.set_fill_color(30, 41, 59) # خلفية زرقاء غامقة للهيدر
-    pdf.rect(0, 0, 210, 40, 'F')
-    
-    pdf.set_font("Arial", 'B', 22)
-    pdf.set_text_color(255, 255, 255)
-    pdf.cell(190, 25, "SOVEREIGN AUDIT REPORT", ln=True, align='C')
-    
     pdf.ln(20)
-    
-    # 2. Metadata Section
     pdf.set_font("Arial", 'B', 12)
-    pdf.set_text_color(56, 189, 248)
-    pdf.cell(100, 10, f"ID: SOV-{int(time.time())}")
-    pdf.cell(90, 10, f"DATE: {datetime.datetime.now(SWEDEN_TZ).strftime('%Y-%m-%d')}", align='R', ln=True)
-    pdf.line(10, 55, 200, 55)
+    pdf.set_text_color(30, 41, 59)
     
-    # 3. Content Section
-    pdf.ln(10)
-    pdf.set_font("Arial", '', 11)
-    pdf.set_text_color(0, 0, 0)
-    
-    # تحويل النص ليكون متوافقاً مع الترميز
-    safe_text = target_info.encode('latin-1', 'replace').decode('latin-1')
-    pdf.multi_cell(190, 8, txt=safe_text)
-    
-    # 4. QR Code Generation (Direct Link to you)
-    qr_data = f"https://t.me/your_bot_username" # استبدل بيوزرك
-    qr = qrcode.make(qr_data)
-    qr_path = "contact_qr.png"
-    qr.save(qr_path)
-    
-    pdf.image(qr_path, x=170, y=250, w=30) # وضع الكود في الزاوية
-    
-    pdf.set_y(255)
-    pdf.set_font("Arial", 'I', 8)
-    pdf.cell(150, 10, "Scan to verify this audit or contact our Sovereign Security Team", align='L')
+    sections = analysis_data.split('\n\n')
+    for section in sections:
+        if ':' in section:
+            title, content = section.split(':', 1)
+            pdf.set_font("Arial", 'B', 12)
+            pdf.cell(0, 10, title.strip().upper(), ln=True)
+            pdf.set_font("Arial", '', 11)
+            pdf.multi_cell(0, 7, content.strip().encode('latin-1', 'replace').decode('latin-1'))
+            pdf.ln(5)
     
     file_name = f"Sovereign_Audit_{int(time.time())}.pdf"
     pdf.output(file_name)
-    os.remove(qr_path) # حذف الصورة المؤقتة
     return file_name
 
-def deep_sovereign_hunting():
+# --- 5. رادار الصيد (The Hunter Mission) ---
+def deep_hunting_mission(sector="General"):
     try:
-        query = "Sweden IMY privacy fines 2025 news companies compliance"
-        raw_results = search_tool.run(query) if search_tool else "No search tool"
+        query = f"latest GDPR fines 2025 2026 {sector} companies Europe Swedish news"
+        raw_data = search_tool.run(query)
         
-        # دمج استراتيجية الصيد والرسالة السويدية المطلوبة
-        analysis_prompt = f"""
-        Analyze these Swedish news results: {raw_results[:2000]}
-        1. Identify ONE real Swedish company recently fined by IMY.
-        2. Write a professional report and a high-level sales pitch in SWEDISH for their CEO.
-        Format: TARGET, LOSS, OUR SHIELD, SWEDISH PITCH.
+        mission_prompt = f"""
+        Based on this data: {raw_data[:2500]}
+        1. Identify a NEW real company recently fined (Prefer Swedish if available).
+        2. Analyze the 'Financial Wound' (Fine amount vs impact).
+        3. Craft a 'Sovereign Shield' solution.
+        4. Write a professional CEO Pitch in the company's local language.
+        Format: TARGET, COUNTRY, WOUND, SHIELD, PITCH.
         """
-        report_content = get_board_decision(analysis_prompt, sys_msg="You are a Senior Sovereign Sales Strategist.")
         
-        pdf_path = generate_sovereign_pdf(report_content)
+        analysis = ai_engine.ask(mission_prompt, "Senior Sovereign Strategist")
+        
+        # حفظ في قاعدة البيانات
+        try:
+            lines = analysis.split('\n')
+            comp = [l for l in lines if "TARGET" in l][0].split(':')[1].strip()
+            conn = sqlite3.connect('sovereign.db')
+            conn.cursor().execute("INSERT INTO targets (company, date) VALUES (?, ?)", (comp, str(datetime.datetime.now(SWEDEN_TZ))))
+            conn.commit()
+            conn.close()
+        except: pass
+
+        pdf_path = create_rich_report(analysis)
         
         url = f"https://api.telegram.org/bot{TOKEN}/sendDocument"
-        with open(pdf_path, "rb") as file:
-            requests.post(url, data={"chat_id": MY_ID, "caption": "🚨 تقرير استخباراتي سيادي جديد جاهز."}, files={"document": file})
-        
-        if os.path.exists(pdf_path):
-            os.remove(pdf_path)
+        with open(pdf_path, "rb") as f:
+            requests.post(url, data={"chat_id": MY_ID, "caption": f"🚨 رادار السيادة: تم اصطياد هدف في قطاع {sector}"}, files={"document": f})
+        os.remove(pdf_path)
     except Exception as e:
-        logging.error(f"Hunting/PDF Error: {e}")
+        logging.error(f"Hunting Error: {e}")
 
-# --- 5. واجهة الويب (Dashboard) والـ API ---
+# --- 6. واجهة الويب والـ API ---
+app = Flask(__name__)
+
 @app.route('/')
-def home():
+def dashboard():
+    conn = sqlite3.connect('sovereign.db')
+    targets_count = conn.cursor().execute("SELECT count(*) FROM targets").fetchone()[0]
+    conn.close()
     now_sw = datetime.datetime.now(SWEDEN_TZ).strftime('%H:%M:%S')
     return f"""
-    <html>
-        <head>
-            <title>Sovereign Manager | Control Center</title>
-            <style>
-                body {{ background: #020617; color: #f8fafc; font-family: 'Segoe UI', sans-serif; text-align: center; padding: 40px; }}
-                .container {{ max-width: 900px; margin: auto; }}
-                .grid {{ display: flex; justify-content: center; gap: 20px; margin-top: 30px; }}
-                .card {{ background: #1e293b; border: 1px solid #38bdf8; border-radius: 12px; padding: 25px; width: 250px; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.2); }}
-                .stat {{ font-size: 2.5em; font-weight: bold; color: #38bdf8; margin-bottom: 5px; }}
-                .label {{ color: #94a3b8; text-transform: uppercase; font-size: 0.8em; letter-spacing: 1px; }}
-                .status {{ display: inline-block; padding: 5px 15px; border-radius: 20px; background: #064e3b; color: #4ade80; font-size: 0.9em; margin-bottom: 20px; }}
-            </style>
-            <meta http-equiv="refresh" content="5">
-        </head>
-        <body>
-            <div class="container">
-                <div class="status">● SYSTEM SOVEREIGNTY: OPTIMAL</div>
-                <h1>🛡️ SOVEREIGN MANAGER CORE</h1>
-                <div class="grid">
-                    <div class="card"><div class="stat">{sov_memory.total_protected}</div><div class="label">Protected Records</div></div>
-                    <div class="card"><div class="stat">{sov_memory.threats_blocked}</div><div class="label">Security Blocks</div></div>
-                    <div class="card"><div class="stat">99.9%</div><div class="label">Compliance Rate</div></div>
-                </div>
-                <p style="margin-top: 40px; color: #475569;">Pulse Time (Sweden): {now_sw}</p>
+    <body style='background:#0f172a; color:white; font-family:sans-serif; text-align:center; padding:50px;'>
+        <h1 style='color:#38bdf8;'>🛡️ SOVEREIGN CONTROL CENTER</h1>
+        <div style='display:flex; justify-content:center; gap:20px; margin:30px 0;'>
+            <div style='background:#1e293b; padding:20px; border-radius:10px; border:1px solid #38bdf8; width:200px;'>
+                <h3>Targets Captured</h3>
+                <h2 style='font-size:3em; color:#38bdf8;'>{targets_count}</h2>
             </div>
-        </body>
-    </html>
+            <div style='background:#1e293b; padding:20px; border-radius:10px; border:1px solid #4ade80; width:200px;'>
+                <h3>Protected Records</h3>
+                <h2 style='font-size:3em; color:#4ade80;'>{sov_memory.total_protected}</h2>
+            </div>
+        </div>
+        <p>System Status: <span style='color:#4ade80;'>ACTIVE</span> | Pulse: {now_sw}</p>
+    </body>
     """
 
-@app.route('/api/v1/protect', methods=['POST'])
-def protect_api():
-    client_token = request.headers.get('X-Sovereign-Token')
-    if not client_token or not totp_verifier.verify(client_token):
-        sov_memory.add_threat()
-        return jsonify({"error": "Unauthorized"}), 401
-    
-    incoming = request.json.get("payload")
-    try:
-        protected = sovereign_vault_process(incoming)
-        sov_memory.add_protected()
-        return jsonify({"status": "Sovereign Protected", "data": protected})
-    except Exception as e: return jsonify({"error": str(e)}), 500
-
-# --- 6. معالجة الرسائل ---
+# --- 7. معالجة الرسائل والتشغيل ---
 async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or update.effective_user.id != MY_ID: return
-    task = update.message.text.strip()
+    text = update.message.text.strip()
+    
+    if text == "اصطاد":
+        await update.message.reply_text("⚖️ الرادار يعمل.. جاري مسح الأسواق...")
+        threading.Thread(target=deep_hunting_mission).start()
+    elif text.startswith("قطاع"):
+        sector = text.split(" ")[1] if " " in text else "General"
+        await update.message.reply_text(f"🎯 توجيه الرادار نحو قطاع: {sector}")
+        threading.Thread(target=deep_hunting_mission, args=(sector,)).start()
+    else:
+        response = ai_engine.ask(text)
+        await update.message.reply_text(response)
 
-    if task == "اختبر":
-        await update.message.reply_text("🔍 جاري بدء اختبار الاختراق...")
-        try:
-            token = totp_verifier.now()
-            requests.post(f"http://127.0.0.1:{PORT}/api/v1/protect", 
-                          json={"payload": "Hani Test"}, 
-                          headers={"X-Sovereign-Token": token})
-            await update.message.reply_text(f"🛡️ النظام مؤمن! (تم تحديث الداش بورد)")
-        except Exception as e:
-            await update.message.reply_text(f"❌ خطأ: {str(e)}")
-        return
-
-    if task == "اصطاد":
-        threading.Thread(target=deep_sovereign_hunting).start()
-        await update.message.reply_text("⚖️ جاري تفعيل الرادار وتوليد التقرير الـ PDF...")
-        return
-
-    response = get_board_decision(task)
-    await update.message.reply_text(response)
-
-# --- 7. الإقلاع ---
 async def main():
     application = ApplicationBuilder().token(TOKEN).build()
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_msg))
     
-    # الجدولة التلقائية كل 3 ساعات
     scheduler = BackgroundScheduler(daemon=True, timezone=SWEDEN_TZ)
-    scheduler.add_job(func=deep_sovereign_hunting, trigger="interval", hours=3)
+    scheduler.add_job(func=deep_hunting_mission, trigger="interval", hours=3)
     scheduler.start()
 
     await application.bot.delete_webhook(drop_pending_updates=True)
@@ -242,6 +202,5 @@ async def main():
     while True: await asyncio.sleep(1)
 
 if __name__ == '__main__':
-    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=PORT, use_reloader=False), daemon=True).start()
+    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000, use_reloader=False), daemon=True).start()
     asyncio.run(main())
-
