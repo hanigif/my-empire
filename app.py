@@ -91,21 +91,29 @@ class SovereignPDF(FPDF):
 def create_rich_report(analysis_data):
     pdf = SovereignPDF()
     pdf.add_page()
-    pdf.ln(20)
-    pdf.set_font("Arial", 'B', 12)
+    
+    # إضافة ختم "سري للغاية" كخلفية (Watermark)
+    pdf.set_font("Arial", 'B', 50)
+    pdf.set_text_color(240, 240, 240)
+    pdf.rotate(45, 105, 155)
+    pdf.text(30, 190, "CONFIDENTIAL - SOVEREIGN")
+    pdf.rotate(0)
+    
+    pdf.ln(25)
     pdf.set_text_color(30, 41, 59)
     
-    sections = analysis_data.split('\n\n')
-    for section in sections:
-        if ':' in section:
-            title, content = section.split(':', 1)
-            pdf.set_font("Arial", 'B', 12)
-            pdf.cell(0, 10, title.strip().upper(), ln=True)
-            pdf.set_font("Arial", '', 11)
-            pdf.multi_cell(0, 7, content.strip().encode('latin-1', 'replace').decode('latin-1'))
-            pdf.ln(5)
-    
-    file_name = f"Sovereign_Audit_{int(time.time())}.pdf"
+    # تقسيم النص إلى أقسام احترافية
+    for line in analysis_data.split('\n'):
+        if ':' in line:
+            title, content = line.split(':', 1)
+            pdf.set_font("Arial", 'B', 11)
+            pdf.set_fill_color(241, 245, 249)
+            pdf.cell(0, 8, title.strip().upper(), ln=True, fill=True)
+            pdf.set_font("Arial", '', 10)
+            pdf.multi_cell(0, 6, content.strip().encode('latin-1', 'replace').decode('latin-1'))
+            pdf.ln(2)
+            
+    file_name = f"Sovereign_Executive_Report_{int(time.time())}.pdf"
     pdf.output(file_name)
     return file_name
 
@@ -260,4 +268,5 @@ async def main():
 if __name__ == '__main__':
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000, use_reloader=False), daemon=True).start()
     asyncio.run(main())
+
 
