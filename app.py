@@ -92,16 +92,13 @@ class SovereignPDF(FPDF):
 def create_rich_report(analysis_data):
     pdf = SovereignPDF()
     pdf.add_page()
-    
     pdf.set_font("Arial", 'B', 50)
     pdf.set_text_color(240, 240, 240)
     pdf.rotate(45, 105, 155)
     pdf.text(30, 190, "CONFIDENTIAL - SOVEREIGN")
     pdf.rotate(0)
-    
     pdf.ln(25)
     pdf.set_text_color(30, 41, 59)
-    
     for line in analysis_data.split('\n'):
         if ':' in line:
             title, content = line.split(':', 1)
@@ -111,121 +108,79 @@ def create_rich_report(analysis_data):
             pdf.set_font("Arial", '', 10)
             pdf.multi_cell(0, 6, content.strip().encode('latin-1', 'replace').decode('latin-1'))
             pdf.ln(2)
-            
     file_name = f"Sovereign_Executive_Report_{int(time.time())}.pdf"
     pdf.output(file_name)
     return file_name
 
 # --- 5. رادار الصيد والتدقيق (The Mission) ---
+
+def technical_vulnerability_scan(domain):
+    """فحص تقني لاكتشاف تسريب البيانات للسيرفرات الأمريكية"""
+    target_url = domain if domain.startswith("http") else f"https://{domain}"
+    leaks = []
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0 (SovereignAudit/1.0)'}
+        response = requests.get(target_url, timeout=10, headers=headers)
+        content = response.text.lower()
+        if "google-analytics.com" in content or "googletagmanager.com" in content:
+            leaks.append("Google Analytics (Detected: Unauthorized US Data Flow)")
+        if "facebook.net/en_us/fbevents.js" in content:
+            leaks.append("Facebook Pixel (Detected: Direct PII Leak to Meta US)")
+        if "hotjar.com" in content:
+            leaks.append("Hotjar (Detected: Session Recording on External Servers)")
+        return leaks
+    except Exception as e:
+        return [f"Scan Error: {str(e)}"]
+
 def deep_hunting_mission(sector="Logistics"):
     try:
-        # توجيه البحث حصراً لقطاع الشحن السويدي والشركات المتوسطة
         query = f"Swedish mid-sized {sector} transport companies privacy leaks NIS2 compliance 2026"
         raw_data = search_tool.run(query)
-        
         mission_prompt = f"""
         TASK: ACT AS A SWEDISH CYBER-LEGAL AUDITOR (IMY SPECIALIST).
         DATA SOURCE: {raw_data[:2500]}
-
-        1. FOCUS: Find a REAL Swedish mid-sized Logistics/Transport company (local names in Gothenburg/Stockholm).
-        2. PREDICTIVE AUDIT: Analyze digital presence for NIS2 failures (24h reporting, EU data residency).
+        1. FOCUS: Find a REAL Swedish mid-sized Logistics/Transport company.
+        2. PREDICTIVE AUDIT: Analyze digital presence for NIS2 failures.
         3. FINANCIAL WOUND: Calculate potential fine (4% of revenue) in SEK.
         4. SOVEREIGN SHIELD: Explain how our 'Sovereign Agent' solves this.
-        5. THE PITCH (Swedish): Professional CEO message starting with: "VIKTIGT: Bristande efterlevnad av NIS2-direktivet identifierad för [Company Name]"
-        
+        5. THE PITCH (Swedish): Professional CEO message.
         Format the output: TARGET, COUNTRY, WOUND, SHIELD, PITCH.
         """
-        
         analysis = ai_engine.ask(mission_prompt, "Senior Swedish Data Auditor & NIS2 Expert")
-        
-        # 1. استخراج اسم الشركة وحفظه لمرة واحدة فقط
         comp = "Unknown Target"
         try:
             lines = analysis.split('\n')
             target_line = [l for l in lines if "TARGET" in l.upper()][0]
             comp = target_line.split(':')[1].strip()
-            
             conn = sqlite3.connect('sovereign.db')
-            conn.cursor().execute("INSERT INTO targets (company, date) VALUES (?, ?)", 
-                                (comp, str(datetime.datetime.now(SWEDEN_TZ))))
+            conn.cursor().execute("INSERT INTO targets (company, date) VALUES (?, ?)", (comp, str(datetime.datetime.now(SWEDEN_TZ))))
             conn.commit()
             conn.close()
-        except Exception as db_e:
-            logging.error(f"Database Save Error: {db_e}")
-
-        # 2. إنشاء التقرير PDF
+        except: pass
         pdf_path = create_rich_report(analysis)
-        
-        # 3. إرسال الملف عبر تليجرام
         url = f"https://api.telegram.org/bot{TOKEN}/sendDocument"
         with open(pdf_path, "rb") as f:
-            requests.post(url, data={
-                "chat_id": MY_ID, 
-                "caption": f"🚨 رادار السيادة: تم اصطياد هدف حقيقي!\n🏢 الشركة: {comp}\n🎯 القطاع: {sector}"
-            }, files={"document": f})
-        
-        # 4. تنظيف الملفات المؤقتة
-        if os.path.exists(pdf_path):
-            os.remove(pdf_path)
-            
-    except Exception as e:
-        logging.error(f"Hunting Error: {e}")
+            requests.post(url, data={"chat_id": MY_ID, "caption": f"🚨 رادار السيادة: تم اصطياد هدف حقيقي!\n🏢 الشركة: {comp}"}, files={"document": f})
+        if os.path.exists(pdf_path): os.remove(pdf_path)
+    except Exception as e: logging.error(f"Hunting Error: {e}")
 
 def real_time_compliance_audit(domain):
-    # الخطوة 1: الفحص التقني عن الثغرات (الدليل الملموس)
     tech_leaks = technical_vulnerability_scan(domain)
-    leaks_str = "\n".join([f"- {l['name']}: {l['issue']}" for l in tech_leaks]) if tech_leaks else "No basic tracking leaks detected."
-
-    # الخطوة 2: سحب محتوى سياسة الخصوصية
+    leaks_str = "\n".join([f"- {l}" for l in tech_leaks]) if tech_leaks else "No basic tracking leaks detected."
     downloaded = trafilatura.fetch_url(f"{domain}/privacy-policy") or trafilatura.fetch_url(domain)
-    web_text = trafilatura.extract(downloaded) if downloaded else "No policy text found."
+    web_text = trafilatura.extract(downloaded) if downloaded else "No content"
     
-    # الخطوة 3: صياغة التقرير الهجومي
     audit_prompt = f"""
     ANALYSIS TASK: Conduct a STRICT Legal & Technical audit for {domain}.
-    
-    TECHNICAL EVIDENCE FOUND:
-    {leaks_str}
-    
-    LEGAL CONTEXT (Source Text):
-    {web_text[:3000]}
-    
+    TECHNICAL EVIDENCE FOUND: {leaks_str}
+    SOURCE TEXT: {web_text[:3000]}
     INSTRUCTIONS:
-    1. THE VULNERABILITY: Use the 'TECHNICAL EVIDENCE' to prove they are violating NIS2/Schrems II (Data residency).
+    1. PROVE THE VIOLATION: Use the TECHNICAL EVIDENCE to prove NIS2/Schrems II breaches.
     2. THE FINE: Calculate a specific fine in SEK.
-    3. THE SOLUTION: Pitch our 'Sovereign Proxy' which intercepts these specific leaks and keeps data in Sweden.
-    4. TONE: Professional but 'Alasming'.
-    
-    FORMAT: 
-    - TARGET NAME
-    - TECHNICAL VULNERABILITY (Specific link/script found)
-    - LEGAL VIOLATION (NIS2/GDPR Articles)
-    - POTENTIAL FINE (SEK)
-    - THE SOVEREIGN SOLUTION (The code we sell)
+    3. THE SOLUTION: Pitch our 'Sovereign Proxy' (Server-side tagging) as the cure.
+    FORMAT: TARGET NAME, TECHNICAL VULNERABILITY, LEGAL VIOLATION, POTENTIAL FINE (SEK), THE SOVEREIGN SOLUTION.
     """
-    return ai_engine.ask(audit_prompt, "Senior Swedish Data Auditor & NIS2 Enforcement Officer")
- def technical_vulnerability_scan(domain):
-    """يبحث عن أدوات تتبع تسرب البيانات للسيرفرات الأمريكية"""
-    target_url = domain if domain.startswith("http") else f"https://{domain}"
-    leaks = []
-    try:
-        # محاكاة متصفح حقيقي لتجنب الحظر
-        headers = {'User-Agent': 'Mozilla/5.0 Sovereign-Audit/1.0'}
-        response = requests.get(target_url, timeout=15, headers=headers)
-        content = response.text.lower()
-        
-        # رصد الثغرات التقنية (التي تنقل البيانات للخارج)
-        if "google-analytics.com" in content or "googletagmanager.com" in content:
-            leaks.append({"name": "Google Analytics / Tag Manager", "issue": "Data transfer to US servers without Sovereign Proxy"})
-        if "facebook.net" in content or "fbevents.js" in content:
-            leaks.append({"name": "Meta/Facebook Pixel", "issue": "Direct tracking of Swedish citizens by US-based Meta"})
-        if "hotjar.com" in content:
-            leaks.append({"name": "Hotjar Session Recording", "issue": "Unauthorized recording of user sessions on non-EU infrastructure"})
-            
-        return leaks
-    except Exception as e:
-        logging.error(f"Scan Error for {domain}: {e}")
-        return []
+    return ai_engine.ask(audit_prompt, "Senior Swedish Data Auditor & NIS2 Officer")
 
 # --- 6. واجهة الويب (Dashboard) ---
 app = Flask(__name__)
@@ -237,58 +192,34 @@ def dashboard():
     targets_count = conn.execute("SELECT count(*) FROM targets").fetchone()[0]
     conn.close()
     now_sw = datetime.datetime.now(SWEDEN_TZ).strftime('%Y-%m-%d %H:%M:%S')
-    
     return f"""
     <!DOCTYPE html>
     <html lang="en">
-    <head>
-        <meta charset="UTF-8"><title>Sovereign Manager | Control</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-        <style>
-            body {{ background-color: #020617; color: #f8fafc; }}
-            .cyber-card {{ background: rgba(30, 41, 59, 0.5); border: 1px solid #38bdf8; backdrop-filter: blur(10px); }}
-        </style>
-    </head>
-    <body class="p-8">
-        <div class="max-w-6xl mx-auto">
-            <div class="flex justify-between items-center border-b border-slate-700 pb-6 mb-8">
-                <h1 class="text-3xl font-bold text-sky-400">🛡️ SOVEREIGN MANAGER CORE</h1>
-                <p class="font-mono text-sky-300">{now_sw}</p>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="cyber-card p-6 rounded-xl"><h3>TARGETS CAPTURED</h3><p class="text-5xl font-black text-sky-400">{targets_count}</p></div>
-                <div class="cyber-card p-6 rounded-xl"><h3>SHIELD STATUS</h3><p class="text-5xl font-black text-emerald-400">99.9%</p></div>
-                <div class="cyber-card p-6 rounded-xl"><h3>THREAT LEVEL</h3><p class="text-5xl font-black text-amber-400">HIGH</p></div>
-            </div>
-            <div class="cyber-card rounded-xl overflow-hidden">
-                <table class="w-full text-left">
-                    <thead class="bg-slate-900/50"><tr><th class="p-4">ENTITY</th><th class="p-4">STATUS</th><th class="p-4">TIME</th></tr></thead>
-                    <tbody>
-                        {" ".join([f'<tr class="border-b border-slate-800"><td class="p-4">{t[1]}</td><td class="p-4 text-emerald-400">● ANALYZED</td><td class="p-4">{t[4]}</td></tr>' for t in targets])}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </body>
-    </html>
+    <head><meta charset="UTF-8"><title>Sovereign Manager | Control</title><script src="https://cdn.tailwindcss.com"></script>
+    <style>body {{ background-color: #020617; color: #f8fafc; }} .cyber-card {{ background: rgba(30, 41, 59, 0.5); border: 1px solid #38bdf8; backdrop-filter: blur(10px); }}</style></head>
+    <body class="p-8"><div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center border-b border-slate-700 pb-6 mb-8"><h1 class="text-3xl font-bold text-sky-400">🛡️ SOVEREIGN MANAGER CORE</h1><p class="font-mono text-sky-300">{now_sw}</p></div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="cyber-card p-6 rounded-xl"><h3>TARGETS CAPTURED</h3><p class="text-5xl font-black text-sky-400">{targets_count}</p></div>
+    <div class="cyber-card p-6 rounded-xl"><h3>SHIELD STATUS</h3><p class="text-5xl font-black text-emerald-400">99.9%</p></div>
+    <div class="cyber-card p-6 rounded-xl"><h3>THREAT LEVEL</h3><p class="text-5xl font-black text-amber-400">HIGH</p></div></div>
+    <div class="cyber-card rounded-xl overflow-hidden"><table class="w-full text-left">
+    <thead class="bg-slate-900/50"><tr><th class="p-4">ENTITY</th><th class="p-4">STATUS</th><th class="p-4">TIME</th></tr></thead>
+    <tbody>{" ".join([f'<tr class="border-b border-slate-800"><td class="p-4">{t[1]}</td><td class="p-4 text-emerald-400">● ANALYZED</td><td class="p-4">{t[4]}</td></tr>' for t in targets])}</tbody>
+    </table></div></div></body></html>
     """
 
 # --- 7. معالجة الرسائل والتشغيل (Telegram & Scheduler) ---
 async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or update.effective_user.id != MY_ID: return
     text = update.message.text.strip()
-    
     if text == "اصطاد":
         await update.message.reply_text("⚖️ الرادار يعمل.. جاري مسح الأسواق السويدية...")
         threading.Thread(target=deep_hunting_mission).start()
-    elif text.startswith("قطاع"):
-        sector = text.split(" ")[1] if " " in text else "General"
-        await update.message.reply_text(f"🎯 توجيه الرادار نحو قطاع: {sector}")
-        threading.Thread(target=deep_hunting_mission, args=(sector,)).start()
     elif text.startswith("فحص"):
         domain = text.split(" ")[1] if " " in text else None
         if domain:
-            await update.message.reply_text(f"🔍 جاري فحص الامتثال الحي لـ {domain}...")
+            await update.message.reply_text(f"🔍 جاري فحص الأدلة التقنية والامتثال لـ {domain}...")
             report = real_time_compliance_audit(domain)
             await update.message.reply_text(report)
     else:
@@ -298,11 +229,9 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def main():
     application = ApplicationBuilder().token(TOKEN).build()
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_msg))
-    
     scheduler = BackgroundScheduler(daemon=True, timezone=SWEDEN_TZ)
     scheduler.add_job(func=deep_hunting_mission, trigger="interval", hours=3)
     scheduler.start()
-
     await application.bot.delete_webhook(drop_pending_updates=True)
     await application.initialize()
     await application.start()
@@ -312,5 +241,3 @@ async def main():
 if __name__ == '__main__':
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000, use_reloader=False), daemon=True).start()
     asyncio.run(main())
-
-
