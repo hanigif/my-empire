@@ -333,6 +333,20 @@ def dashboard():
     </html>
     """
 
+# --- بوابة استقبال البيانات من البروكسي (The Receiver) ---
+@app.route('/receive-intelligence', methods=['POST'])
+def receive_intelligence():
+    try:
+        data = request.json
+        conn = sqlite3.connect('sovereign_core.db')
+        conn.execute("INSERT INTO intelligence (company_name, risk_level, status, discovery_date) VALUES (?, ?, ?, ?)",
+                     (data.get('source', 'Unknown'), "SECURE", "DATA SCRUBBED", get_sweden_time()))
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "Intelligence Received"}), 200
+    except Exception as e:
+        return jsonify({"status": "Error", "message": str(e)}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
@@ -431,6 +445,7 @@ async def main():
 if __name__ == '__main__':
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000, use_reloader=False), daemon=True).start()
     asyncio.run(main())
+
 
 
 
