@@ -172,15 +172,60 @@ def deep_hunting_mission(sector="Logistics"):
         logging.error(f"Hunting Error: {e}")
 
 def real_time_compliance_audit(domain):
+    # الخطوة 1: الفحص التقني عن الثغرات (الدليل الملموس)
+    tech_leaks = technical_vulnerability_scan(domain)
+    leaks_str = "\n".join([f"- {l['name']}: {l['issue']}" for l in tech_leaks]) if tech_leaks else "No basic tracking leaks detected."
+
+    # الخطوة 2: سحب محتوى سياسة الخصوصية
     downloaded = trafilatura.fetch_url(f"{domain}/privacy-policy") or trafilatura.fetch_url(domain)
-    web_text = trafilatura.extract(downloaded) if downloaded else "No content"
+    web_text = trafilatura.extract(downloaded) if downloaded else "No policy text found."
     
+    # الخطوة 3: صياغة التقرير الهجومي
     audit_prompt = f"""
-    ANALYSIS TASK: Conduct a STRICT Legal & Technical audit based on Swedish NIS2 and GDPR.
-    SOURCE TEXT: {web_text[:4000]}
-    OUTPUT: List REAL VIOLATIONS and POTENTIAL FINE.
+    ANALYSIS TASK: Conduct a STRICT Legal & Technical audit for {domain}.
+    
+    TECHNICAL EVIDENCE FOUND:
+    {leaks_str}
+    
+    LEGAL CONTEXT (Source Text):
+    {web_text[:3000]}
+    
+    INSTRUCTIONS:
+    1. THE VULNERABILITY: Use the 'TECHNICAL EVIDENCE' to prove they are violating NIS2/Schrems II (Data residency).
+    2. THE FINE: Calculate a specific fine in SEK.
+    3. THE SOLUTION: Pitch our 'Sovereign Proxy' which intercepts these specific leaks and keeps data in Sweden.
+    4. TONE: Professional but 'Alasming'.
+    
+    FORMAT: 
+    - TARGET NAME
+    - TECHNICAL VULNERABILITY (Specific link/script found)
+    - LEGAL VIOLATION (NIS2/GDPR Articles)
+    - POTENTIAL FINE (SEK)
+    - THE SOVEREIGN SOLUTION (The code we sell)
     """
-    return ai_engine.ask(audit_prompt, "Senior Swedish Data Auditor")
+    return ai_engine.ask(audit_prompt, "Senior Swedish Data Auditor & NIS2 Enforcement Officer")
+ def technical_vulnerability_scan(domain):
+    """يبحث عن أدوات تتبع تسرب البيانات للسيرفرات الأمريكية"""
+    target_url = domain if domain.startswith("http") else f"https://{domain}"
+    leaks = []
+    try:
+        # محاكاة متصفح حقيقي لتجنب الحظر
+        headers = {'User-Agent': 'Mozilla/5.0 Sovereign-Audit/1.0'}
+        response = requests.get(target_url, timeout=15, headers=headers)
+        content = response.text.lower()
+        
+        # رصد الثغرات التقنية (التي تنقل البيانات للخارج)
+        if "google-analytics.com" in content or "googletagmanager.com" in content:
+            leaks.append({"name": "Google Analytics / Tag Manager", "issue": "Data transfer to US servers without Sovereign Proxy"})
+        if "facebook.net" in content or "fbevents.js" in content:
+            leaks.append({"name": "Meta/Facebook Pixel", "issue": "Direct tracking of Swedish citizens by US-based Meta"})
+        if "hotjar.com" in content:
+            leaks.append({"name": "Hotjar Session Recording", "issue": "Unauthorized recording of user sessions on non-EU infrastructure"})
+            
+        return leaks
+    except Exception as e:
+        logging.error(f"Scan Error for {domain}: {e}")
+        return []
 
 # --- 6. واجهة الويب (Dashboard) ---
 app = Flask(__name__)
@@ -267,4 +312,5 @@ async def main():
 if __name__ == '__main__':
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000, use_reloader=False), daemon=True).start()
     asyncio.run(main())
+
 
