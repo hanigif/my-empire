@@ -221,22 +221,14 @@ app = Flask(__name__)
 
 @app.route('/')
 def dashboard():
-    # --- 1. جزء رادار التنبيهات الجديد ---
+    # نظام التنبيهات (الرادار)
     visitor_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-    
-    # تشغيل التنبيه في الخلفية لضمان سرعة تصفح الزائر
     import threading
-    def start_notification():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(notify_visitor(visitor_ip))
-        loop.close()
-    
-    threading.Thread(target=start_notification).start()
+    threading.Thread(target=lambda: asyncio.run(notify_visitor(visitor_ip))).start()
 
-    # --- 2. جزء جلب البيانات (الذي أرسلته أنت) ---
     conn = sqlite3.connect('sovereign.db')
     targets = conn.execute("SELECT company, country, fine, date, status FROM targets ORDER BY id DESC LIMIT 10").fetchall()
+    # إحصائيات
     targets_count = conn.execute("SELECT count(*) FROM targets").fetchone()[0]
     solutions_sent = conn.execute("SELECT count(*) FROM targets WHERE status = 'Solution Sent'").fetchone()[0]
     conn.close()
@@ -247,66 +239,73 @@ def dashboard():
     <!DOCTYPE html>
     <html lang="en">
     <head>
-        <meta charset="UTF-8"><title>Sovereign Manager | Control Center</title>
+        <meta charset="UTF-8"><title>Sovereign Manager | Enterprise</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
             body {{ background-color: #020617; color: #f8fafc; }}
-            .cyber-card {{ background: rgba(30, 41, 59, 0.5); border: 1px solid #38bdf8; backdrop-filter: blur(10px); }}
-            .status-glow-sent {{ color: #4ade80; text-shadow: 0 0 10px rgba(74, 222, 128, 0.5); }}
-            .status-glow-scouted {{ color: #fbbf24; text-shadow: 0 0 10px rgba(251, 191, 36, 0.5); }}
+            .cyber-card {{ background: rgba(30, 41, 59, 0.4); border: 1px solid #1e293b; backdrop-filter: blur(10px); }}
+            .partner-glow {{ box-shadow: 0 0 20px rgba(56, 189, 248, 0.2); border: 1px solid #38bdf8; }}
         </style>
     </head>
-    <body class="p-8">
+    <body class="p-8 font-sans">
         <div class="max-w-6xl mx-auto">
-            <div class="flex justify-between items-center border-b border-slate-700 pb-6 mb-8">
+            <div class="flex justify-between items-end border-b border-slate-800 pb-6 mb-8">
                 <div>
-                    <h1 class="text-3xl font-bold text-sky-400">🛡️ SOVEREIGN MANAGER CORE</h1>
-                    <p class="text-slate-400 text-sm">Sovereign Data Compliance Lead Generation</p>
+                    <h1 class="text-4xl font-black text-white tracking-tighter text-sky-400">SOVEREIGN CORE v2.0</h1>
+                    <p class="text-slate-500 font-mono text-sm">ACTIVE NODE: STOCKHOLM_SWEDEN</p>
                 </div>
-                <p class="font-mono text-sky-300 text-right">{now_sw}<br><span class="text-xs text-slate-500 font-sans">Stockholm, Sweden</span></p>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="cyber-card p-6 rounded-xl text-center">
-                    <h3 class="text-slate-400 text-sm mb-2">TARGETS SCOUTED</h3>
-                    <p class="text-5xl font-black text-sky-400">{targets_count}</p>
-                </div>
-                <div class="cyber-card p-6 rounded-xl text-center">
-                    <h3 class="text-slate-400 text-sm mb-2">SOLUTIONS DELIVERED</h3>
-                    <p class="text-5xl font-black text-emerald-400">{solutions_sent}</p>
-                </div>
-                <div class="cyber-card p-6 rounded-xl text-center">
-                    <h3 class="text-slate-400 text-sm mb-2">PII PROTECTED</h3>
-                    <p class="text-5xl font-black text-amber-400">ACTIVE</p>
+                <div class="text-right font-mono text-sky-500">
+                    <p>{now_sw}</p>
+                    <p class="text-xs">LAT: 59.3293 | LON: 18.0686</p>
                 </div>
             </div>
 
-            <div class="cyber-card rounded-xl overflow-hidden shadow-2xl">
+            <div class="cyber-card partner-glow p-6 rounded-2xl mb-10 bg-gradient-to-r from-slate-900 to-sky-900/20">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="bg-sky-500 text-black text-xs font-bold px-2 py-1 rounded mb-2 inline-block text-white">OFFICIAL PARTNER</span>
+                        <h2 class="text-2xl font-bold">Globiversal Group AB</h2>
+                        <p class="text-slate-400">Status: <span class="text-emerald-400 font-mono animate-pulse">● PROXY_ACTIVE</span> | Compliance: NIS2/GDPR Certified</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-slate-500 mb-1">DATA SCRUBBING RATE</p>
+                        <p class="text-2xl font-mono text-sky-400">100%</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                <div class="cyber-card p-6 rounded-xl border-l-4 border-sky-500">
+                    <h3 class="text-slate-500 text-xs font-bold uppercase tracking-widest">Total Scouts</h3>
+                    <p class="text-4xl font-black mt-2">{targets_count}</p>
+                </div>
+                <div class="cyber-card p-6 rounded-xl border-l-4 border-emerald-500">
+                    <h3 class="text-slate-500 text-xs font-bold uppercase tracking-widest">Sent Solutions</h3>
+                    <p class="text-4xl font-black mt-2">{solutions_sent}</p>
+                </div>
+                <div class="cyber-card p-6 rounded-xl border-l-4 border-amber-500">
+                    <h3 class="text-slate-500 text-xs font-bold uppercase tracking-widest">Risk Mitigation</h3>
+                    <p class="text-4xl font-black mt-2">ACTIVE</p>
+                </div>
+            </div>
+
+            <div class="cyber-card rounded-xl overflow-hidden border border-slate-800">
                 <table class="w-full text-left">
-                    <thead class="bg-slate-900/80 text-sky-400">
-                        <tr>
-                            <th class="p-4">COMPANY ENTITY</th>
-                            <th class="p-4">COMPLIANCE STATUS</th>
-                            <th class="p-4">DISCOVERY DATE</th>
+                    <thead class="bg-slate-900/80">
+                        <tr class="text-slate-400 text-xs uppercase tracking-widest">
+                            <th class="p-4">Entity</th><th class="p-4">Compliance Status</th><th class="p-4">Discovery</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {" ".join([f'''
-                        <tr class="border-b border-slate-800 hover:bg-slate-800/30 transition-colors">
-                            <td class="p-4 font-semibold">{t[0]}</td>
-                            <td class="p-4">
-                                <span class="{"status-glow-sent" if t[4] == 'Solution Sent' else "status-glow-scouted"}">
-                                    ● {t[4] if t[4] else 'Scouted'}
-                                </span>
-                            </td>
-                            <td class="p-4 text-slate-400 text-sm">{t[3]}</td>
+                    <tbody class="text-sm">
+                        {" ".join([f'''<tr class="border-b border-slate-800/50 hover:bg-white/5 transition-colors">
+                            <td class="p-4 font-bold text-slate-200">{t[0]}</td>
+                            <td class="p-4"><span class="flex items-center gap-2">
+                                <span class="h-2 w-2 rounded-full {"bg-emerald-500" if t[4] == 'Solution Sent' else "bg-amber-500"}"></span>
+                                {t[4] if t[4] else 'Scouted'}</span></td>
+                            <td class="p-4 text-slate-500 font-mono">{t[3]}</td>
                         </tr>''' for t in targets])}
                     </tbody>
                 </table>
-            </div>
-            
-            <div class="mt-6 text-center text-slate-600 text-xs">
-                &copy; 2026 Sovereign Data Agent | Sweden Compliance Operation
             </div>
         </div>
     </body>
@@ -407,6 +406,7 @@ async def main():
 if __name__ == '__main__':
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000, use_reloader=False), daemon=True).start()
     asyncio.run(main())
+
 
 
 
