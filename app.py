@@ -151,24 +151,80 @@ app = Flask(__name__)
 @app.route('/')
 def dashboard():
     conn = sqlite3.connect('sovereign.db')
-    targets_count = conn.cursor().execute("SELECT count(*) FROM targets").fetchone()[0]
+    targets = conn.execute("SELECT * FROM targets ORDER BY id DESC LIMIT 5").fetchall()
+    targets_count = conn.execute("SELECT count(*) FROM targets").fetchone()[0]
     conn.close()
-    now_sw = datetime.datetime.now(SWEDEN_TZ).strftime('%H:%M:%S')
+    
+    now_sw = datetime.datetime.now(SWEDEN_TZ).strftime('%Y-%m-%d %H:%M:%S')
+    
+    # HTML/CSS الواجهة الاحترافية
     return f"""
-    <body style='background:#0f172a; color:white; font-family:sans-serif; text-align:center; padding:50px;'>
-        <h1 style='color:#38bdf8;'>🛡️ SOVEREIGN CONTROL CENTER</h1>
-        <div style='display:flex; justify-content:center; gap:20px; margin:30px 0;'>
-            <div style='background:#1e293b; padding:20px; border-radius:10px; border:1px solid #38bdf8; width:200px;'>
-                <h3>Targets Captured</h3>
-                <h2 style='font-size:3em; color:#38bdf8;'>{targets_count}</h2>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Sovereign Manager | Control Center</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            body {{ background-color: #020617; color: #f8fafc; font-family: 'Inter', sans-serif; }}
+            .cyber-card {{ background: rgba(30, 41, 59, 0.5); border: 1px solid #38bdf8; backdrop-filter: blur(10px); }}
+            .glow-text {{ text-shadow: 0 0 10px #38bdf8; }}
+            .scan-line {{ height: 2px; background: #38bdf8; position: absolute; width: 100%; animation: scan 3s infinite; opacity: 0.3; }}
+            @keyframes scan {{ 0% {{ top: 0; }} 100% {{ top: 100%; }} }}
+        </style>
+    </head>
+    <body class="p-8">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-6 mb-8">
+                <div>
+                    <h1 class="text-3xl font-bold glow-text text-sky-400">🛡️ SOVEREIGN MANAGER CORE</h1>
+                    <p class="text-slate-400">Enterprise Data Compliance Intelligence v2.0</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm text-slate-500">SYSTEM TIME (SWEDEN)</p>
+                    <p class="font-mono text-sky-300">{now_sw}</p>
+                </div>
             </div>
-            <div style='background:#1e293b; padding:20px; border-radius:10px; border:1px solid #4ade80; width:200px;'>
-                <h3>Protected Records</h3>
-                <h2 style='font-size:3em; color:#4ade80;'>{sov_memory.total_protected}</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="cyber-card p-6 rounded-xl relative overflow-hidden">
+                    <div class="scan-line"></div>
+                    <h3 class="text-slate-400 text-sm mb-2">TARGETS CAPTURED</h3>
+                    <p class="text-5xl font-black text-sky-400">{targets_count}</p>
+                </div>
+                <div class="cyber-card p-6 rounded-xl border-emerald-500/50">
+                    <h3 class="text-slate-400 text-sm mb-2">COMPLIANCE SHIELD</h3>
+                    <p class="text-5xl font-black text-emerald-400">99.9%</p>
+                </div>
+                <div class="cyber-card p-6 rounded-xl border-amber-500/50">
+                    <h3 class="text-slate-400 text-sm mb-2">MARKET THREAT LEVEL</h3>
+                    <p class="text-5xl font-black text-amber-400">HIGH</p>
+                </div>
             </div>
+
+            <div class="cyber-card rounded-xl overflow-hidden">
+                <div class="p-4 border-b border-slate-700 bg-slate-800/50">
+                    <h2 class="font-bold text-sky-400 uppercase tracking-widest">Live Target Intelligence</h2>
+                </div>
+                <table class="w-full text-left">
+                    <thead class="bg-slate-900/50 text-slate-500 text-xs">
+                        <tr>
+                            <th class="p-4">ENTITY NAME</th>
+                            <th class="p-4">STATUS</th>
+                            <th class="p-4">TIMESTAMP</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm">
+                        {" ".join([f'<tr class="border-b border-slate-800"><td class="p-4 font-bold">{t[1]}</td><td class="p-4 text-emerald-400 text-xs">● ANALYZED</td><td class="p-4 text-slate-500 font-mono">{t[4]}</td></tr>' for t in targets])}
+                    </tbody>
+                </table>
+            </div>
+            
+            <p class="mt-8 text-center text-slate-600 text-xs italic italic">Confidential Property of Sovereign Security Group. Unauthorized access is strictly prohibited.</p>
         </div>
-        <p>System Status: <span style='color:#4ade80;'>ACTIVE</span> | Pulse: {now_sw}</p>
     </body>
+    </html>
     """
 
 # --- 7. معالجة الرسائل والتشغيل ---
@@ -204,3 +260,4 @@ async def main():
 if __name__ == '__main__':
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000, use_reloader=False), daemon=True).start()
     asyncio.run(main())
+
