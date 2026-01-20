@@ -117,35 +117,57 @@ def create_rich_report(analysis_data):
     return file_name
 
 # --- 5. رادار الصيد والتدقيق (The Mission) ---
-def deep_hunting_mission(sector="General"):
+def deep_hunting_mission(sector="Logistics"):
     try:
-        query = f"latest GDPR fines 2025 2026 {sector} companies Europe Swedish news"
+        # توجيه البحث حصراً لقطاع الشحن السويدي والشركات المتوسطة
+        query = f"Swedish mid-sized {sector} transport companies privacy leaks NIS2 compliance 2026"
         raw_data = search_tool.run(query)
         
         mission_prompt = f"""
-        Based on this data: {raw_data[:2500]}
-        1. Identify a NEW real company recently fined (Prefer Swedish if available).
-        2. Analyze the 'Financial Wound'.
-        3. Craft a 'Sovereign Shield' solution.
-        4. Write a professional CEO Pitch in the company's local language.
-        Format: TARGET, COUNTRY, WOUND, SHIELD, PITCH.
-        """
-        analysis = ai_engine.ask(mission_prompt, "Senior Sovereign Strategist")
+        TASK: ACT AS A SWEDISH CYBER-LEGAL AUDITOR (IMY SPECIALIST).
+        DATA SOURCE: {raw_data[:2500]}
+
+        1. FOCUS: Find a REAL Swedish mid-sized Logistics/Transport company (local names in Gothenburg/Stockholm).
+        2. PREDICTIVE AUDIT: Analyze digital presence for NIS2 failures (24h reporting, EU data residency).
+        3. FINANCIAL WOUND: Calculate potential fine (4% of revenue) in SEK.
+        4. SOVEREIGN SHIELD: Explain how our 'Sovereign Agent' solves this.
+        5. THE PITCH (Swedish): Professional CEO message starting with: "VIKTIGT: Bristande efterlevnad av NIS2-direktivet identifierad för [Company Name]"
         
+        Format the output: TARGET, COUNTRY, WOUND, SHIELD, PITCH.
+        """
+        
+        analysis = ai_engine.ask(mission_prompt, "Senior Swedish Data Auditor & NIS2 Expert")
+        
+        # 1. استخراج اسم الشركة وحفظه لمرة واحدة فقط
+        comp = "Unknown Target"
         try:
             lines = analysis.split('\n')
-            comp = [l for l in lines if "TARGET" in l][0].split(':')[1].strip()
+            target_line = [l for l in lines if "TARGET" in l.upper()][0]
+            comp = target_line.split(':')[1].strip()
+            
             conn = sqlite3.connect('sovereign.db')
-            conn.cursor().execute("INSERT INTO targets (company, date) VALUES (?, ?)", (comp, str(datetime.datetime.now(SWEDEN_TZ))))
+            conn.cursor().execute("INSERT INTO targets (company, date) VALUES (?, ?)", 
+                                (comp, str(datetime.datetime.now(SWEDEN_TZ))))
             conn.commit()
             conn.close()
-        except: pass
+        except Exception as db_e:
+            logging.error(f"Database Save Error: {db_e}")
 
+        # 2. إنشاء التقرير PDF
         pdf_path = create_rich_report(analysis)
+        
+        # 3. إرسال الملف عبر تليجرام
         url = f"https://api.telegram.org/bot{TOKEN}/sendDocument"
         with open(pdf_path, "rb") as f:
-            requests.post(url, data={"chat_id": MY_ID, "caption": f"🚨 رادار السيادة: تم اصطياد هدف في قطاع {sector}"}, files={"document": f})
-        os.remove(pdf_path)
+            requests.post(url, data={
+                "chat_id": MY_ID, 
+                "caption": f"🚨 رادار السيادة: تم اصطياد هدف حقيقي!\n🏢 الشركة: {comp}\n🎯 القطاع: {sector}"
+            }, files={"document": f})
+        
+        # 4. تنظيف الملفات المؤقتة
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
+            
     except Exception as e:
         logging.error(f"Hunting Error: {e}")
 
@@ -245,3 +267,4 @@ async def main():
 if __name__ == '__main__':
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000, use_reloader=False), daemon=True).start()
     asyncio.run(main())
+
