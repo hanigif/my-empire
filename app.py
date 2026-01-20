@@ -92,13 +92,16 @@ class SovereignPDF(FPDF):
 def create_rich_report(analysis_data):
     pdf = SovereignPDF()
     pdf.add_page()
+    
     pdf.set_font("Arial", 'B', 50)
     pdf.set_text_color(240, 240, 240)
     pdf.rotate(45, 105, 155)
     pdf.text(30, 190, "CONFIDENTIAL - SOVEREIGN")
     pdf.rotate(0)
+    
     pdf.ln(25)
     pdf.set_text_color(30, 41, 59)
+    
     for line in analysis_data.split('\n'):
         if ':' in line:
             title, content = line.split(':', 1)
@@ -108,79 +111,102 @@ def create_rich_report(analysis_data):
             pdf.set_font("Arial", '', 10)
             pdf.multi_cell(0, 6, content.strip().encode('latin-1', 'replace').decode('latin-1'))
             pdf.ln(2)
+            
     file_name = f"Sovereign_Executive_Report_{int(time.time())}.pdf"
     pdf.output(file_name)
     return file_name
 
 # --- 5. رادار الصيد والتدقيق (The Mission) ---
+def deep_hunting_mission(sector="Logistics"):
+    try:
+        query = f"Swedish mid-sized {sector} transport companies privacy leaks NIS2 compliance 2026"
+        raw_data = search_tool.run(query)
+        
+        mission_prompt = f"""
+        TASK: ACT AS A SWEDISH CYBER-LEGAL AUDITOR (IMY SPECIALIST).
+        DATA SOURCE: {raw_data[:2500]}
+
+        1. FOCUS: Find a REAL Swedish mid-sized Logistics/Transport company (local names in Gothenburg/Stockholm).
+        2. PREDICTIVE AUDIT: Analyze digital presence for NIS2 failures (24h reporting, EU data residency).
+        3. FINANCIAL WOUND: Calculate potential fine (4% of revenue) in SEK.
+        4. SOVEREIGN SHIELD: Explain how our 'Sovereign Agent' solves this.
+        5. THE PITCH (Swedish): Professional CEO message starting with: "VIKTIGT: Bristande efterlevnad av NIS2-direktivet identifierad för [Company Name]"
+        
+        Format the output: TARGET, COUNTRY, WOUND, SHIELD, PITCH.
+        """
+        
+        analysis = ai_engine.ask(mission_prompt, "Senior Swedish Data Auditor & NIS2 Expert")
+        
+        comp = "Unknown Target"
+        try:
+            lines = analysis.split('\n')
+            target_line = [l for l in lines if "TARGET" in l.upper()][0]
+            comp = target_line.split(':')[1].strip()
+            
+            conn = sqlite3.connect('sovereign.db')
+            conn.cursor().execute("INSERT INTO targets (company, date) VALUES (?, ?)", 
+                                (comp, str(datetime.datetime.now(SWEDEN_TZ))))
+            conn.commit()
+            conn.close()
+        except Exception as db_e:
+            logging.error(f"Database Save Error: {db_e}")
+
+        pdf_path = create_rich_report(analysis)
+        
+        url = f"https://api.telegram.org/bot{TOKEN}/sendDocument"
+        with open(pdf_path, "rb") as f:
+            requests.post(url, data={
+                "chat_id": MY_ID, 
+                "caption": f"🚨 رادار السيادة: تم اصطياد هدف حقيقي!\n🏢 الشركة: {comp}\n🎯 القطاع: {sector}"
+            }, files={"document": f})
+        
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
+            
+    except Exception as e:
+        logging.error(f"Hunting Error: {e}")
 
 def technical_vulnerability_scan(domain):
-    """فحص تقني لاكتشاف تسريب البيانات للسيرفرات الأمريكية"""
+    """فحص تقني حقيقي لاكتشاف تسريب البيانات للسيرفرات الأمريكية"""
     target_url = domain if domain.startswith("http") else f"https://{domain}"
     leaks = []
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (SovereignAudit/1.0)'}
         response = requests.get(target_url, timeout=10, headers=headers)
         content = response.text.lower()
+        
         if "google-analytics.com" in content or "googletagmanager.com" in content:
             leaks.append("Google Analytics (Detected: Unauthorized US Data Flow)")
         if "facebook.net/en_us/fbevents.js" in content:
             leaks.append("Facebook Pixel (Detected: Direct PII Leak to Meta US)")
         if "hotjar.com" in content:
             leaks.append("Hotjar (Detected: Session Recording on External Servers)")
+            
         return leaks
     except Exception as e:
         return [f"Scan Error: {str(e)}"]
 
-def deep_hunting_mission(sector="Logistics"):
-    try:
-        query = f"Swedish mid-sized {sector} transport companies privacy leaks NIS2 compliance 2026"
-        raw_data = search_tool.run(query)
-        mission_prompt = f"""
-        TASK: ACT AS A SWEDISH CYBER-LEGAL AUDITOR (IMY SPECIALIST).
-        DATA SOURCE: {raw_data[:2500]}
-        1. FOCUS: Find a REAL Swedish mid-sized Logistics/Transport company.
-        2. PREDICTIVE AUDIT: Analyze digital presence for NIS2 failures.
-        3. FINANCIAL WOUND: Calculate potential fine (4% of revenue) in SEK.
-        4. SOVEREIGN SHIELD: Explain how our 'Sovereign Agent' solves this.
-        5. THE PITCH (Swedish): Professional CEO message.
-        Format the output: TARGET, COUNTRY, WOUND, SHIELD, PITCH.
-        """
-        analysis = ai_engine.ask(mission_prompt, "Senior Swedish Data Auditor & NIS2 Expert")
-        comp = "Unknown Target"
-        try:
-            lines = analysis.split('\n')
-            target_line = [l for l in lines if "TARGET" in l.upper()][0]
-            comp = target_line.split(':')[1].strip()
-            conn = sqlite3.connect('sovereign.db')
-            conn.cursor().execute("INSERT INTO targets (company, date) VALUES (?, ?)", (comp, str(datetime.datetime.now(SWEDEN_TZ))))
-            conn.commit()
-            conn.close()
-        except: pass
-        pdf_path = create_rich_report(analysis)
-        url = f"https://api.telegram.org/bot{TOKEN}/sendDocument"
-        with open(pdf_path, "rb") as f:
-            requests.post(url, data={"chat_id": MY_ID, "caption": f"🚨 رادار السيادة: تم اصطياد هدف حقيقي!\n🏢 الشركة: {comp}"}, files={"document": f})
-        if os.path.exists(pdf_path): os.remove(pdf_path)
-    except Exception as e: logging.error(f"Hunting Error: {e}")
-
+# دمج الفحص في عملية التدقيق الحي
 def real_time_compliance_audit(domain):
     tech_leaks = technical_vulnerability_scan(domain)
-    leaks_str = "\n".join([f"- {l}" for l in tech_leaks]) if tech_leaks else "No basic tracking leaks detected."
+    leaks_found = "\n".join(tech_leaks) if tech_leaks else "No direct technical leaks found."
+
     downloaded = trafilatura.fetch_url(f"{domain}/privacy-policy") or trafilatura.fetch_url(domain)
     web_text = trafilatura.extract(downloaded) if downloaded else "No content"
     
     audit_prompt = f"""
-    ANALYSIS TASK: Conduct a STRICT Legal & Technical audit for {domain}.
-    TECHNICAL EVIDENCE FOUND: {leaks_str}
+    ANALYSIS TASK: Conduct a CRITICAL Legal & Technical audit.
+    DOMAIN: {domain}
+    TECHNICAL LEAKS DETECTED: {leaks_found}
     SOURCE TEXT: {web_text[:3000]}
+    
     INSTRUCTIONS:
-    1. PROVE THE VIOLATION: Use the TECHNICAL EVIDENCE to prove NIS2/Schrems II breaches.
-    2. THE FINE: Calculate a specific fine in SEK.
-    3. THE SOLUTION: Pitch our 'Sovereign Proxy' (Server-side tagging) as the cure.
-    FORMAT: TARGET NAME, TECHNICAL VULNERABILITY, LEGAL VIOLATION, POTENTIAL FINE (SEK), THE SOVEREIGN SOLUTION.
+    1. PROVE THE VIOLATION: Use the detected technical leaks to cite specific NIS2/GDPR breaches.
+    2. THE FINE: Calculate the fine based on 4% of their revenue (use SEK).
+    3. THE SOLUTION: Pitch our 'Sovereign Proxy' that fixes these SPECIFIC leaks.
+    4. LANGUAGE: Arabic for me, but the PITCH in Swedish.
     """
-    return ai_engine.ask(audit_prompt, "Senior Swedish Data Auditor & NIS2 Officer")
+    return ai_engine.ask(audit_prompt, "Senior Swedish Data Auditor")
 
 # --- 6. واجهة الويب (Dashboard) ---
 app = Flask(__name__)
@@ -192,34 +218,58 @@ def dashboard():
     targets_count = conn.execute("SELECT count(*) FROM targets").fetchone()[0]
     conn.close()
     now_sw = datetime.datetime.now(SWEDEN_TZ).strftime('%Y-%m-%d %H:%M:%S')
+    
     return f"""
     <!DOCTYPE html>
     <html lang="en">
-    <head><meta charset="UTF-8"><title>Sovereign Manager | Control</title><script src="https://cdn.tailwindcss.com"></script>
-    <style>body {{ background-color: #020617; color: #f8fafc; }} .cyber-card {{ background: rgba(30, 41, 59, 0.5); border: 1px solid #38bdf8; backdrop-filter: blur(10px); }}</style></head>
-    <body class="p-8"><div class="max-w-6xl mx-auto">
-    <div class="flex justify-between items-center border-b border-slate-700 pb-6 mb-8"><h1 class="text-3xl font-bold text-sky-400">🛡️ SOVEREIGN MANAGER CORE</h1><p class="font-mono text-sky-300">{now_sw}</p></div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <div class="cyber-card p-6 rounded-xl"><h3>TARGETS CAPTURED</h3><p class="text-5xl font-black text-sky-400">{targets_count}</p></div>
-    <div class="cyber-card p-6 rounded-xl"><h3>SHIELD STATUS</h3><p class="text-5xl font-black text-emerald-400">99.9%</p></div>
-    <div class="cyber-card p-6 rounded-xl"><h3>THREAT LEVEL</h3><p class="text-5xl font-black text-amber-400">HIGH</p></div></div>
-    <div class="cyber-card rounded-xl overflow-hidden"><table class="w-full text-left">
-    <thead class="bg-slate-900/50"><tr><th class="p-4">ENTITY</th><th class="p-4">STATUS</th><th class="p-4">TIME</th></tr></thead>
-    <tbody>{" ".join([f'<tr class="border-b border-slate-800"><td class="p-4">{t[1]}</td><td class="p-4 text-emerald-400">● ANALYZED</td><td class="p-4">{t[4]}</td></tr>' for t in targets])}</tbody>
-    </table></div></div></body></html>
+    <head>
+        <meta charset="UTF-8"><title>Sovereign Manager | Control</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            body {{ background-color: #020617; color: #f8fafc; }}
+            .cyber-card {{ background: rgba(30, 41, 59, 0.5); border: 1px solid #38bdf8; backdrop-filter: blur(10px); }}
+        </style>
+    </head>
+    <body class="p-8">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-6 mb-8">
+                <h1 class="text-3xl font-bold text-sky-400">🛡️ SOVEREIGN MANAGER CORE</h1>
+                <p class="font-mono text-sky-300">{now_sw}</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="cyber-card p-6 rounded-xl"><h3>TARGETS CAPTURED</h3><p class="text-5xl font-black text-sky-400">{targets_count}</p></div>
+                <div class="cyber-card p-6 rounded-xl"><h3>SHIELD STATUS</h3><p class="text-5xl font-black text-emerald-400">99.9%</p></div>
+                <div class="cyber-card p-6 rounded-xl"><h3>THREAT LEVEL</h3><p class="text-5xl font-black text-amber-400">HIGH</p></div>
+            </div>
+            <div class="cyber-card rounded-xl overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-900/50"><tr><th class="p-4">ENTITY</th><th class="p-4">STATUS</th><th class="p-4">TIME</th></tr></thead>
+                    <tbody>
+                        {" ".join([f'<tr class="border-b border-slate-800"><td class="p-4">{t[1]}</td><td class="p-4 text-emerald-400">● ANALYZED</td><td class="p-4">{t[4]}</td></tr>' for t in targets])}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </body>
+    </html>
     """
 
 # --- 7. معالجة الرسائل والتشغيل (Telegram & Scheduler) ---
 async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or update.effective_user.id != MY_ID: return
     text = update.message.text.strip()
+    
     if text == "اصطاد":
         await update.message.reply_text("⚖️ الرادار يعمل.. جاري مسح الأسواق السويدية...")
         threading.Thread(target=deep_hunting_mission).start()
+    elif text.startswith("قطاع"):
+        sector = text.split(" ")[1] if " " in text else "General"
+        await update.message.reply_text(f"🎯 توجيه الرادار نحو قطاع: {sector}")
+        threading.Thread(target=deep_hunting_mission, args=(sector,)).start()
     elif text.startswith("فحص"):
         domain = text.split(" ")[1] if " " in text else None
         if domain:
-            await update.message.reply_text(f"🔍 جاري فحص الأدلة التقنية والامتثال لـ {domain}...")
+            await update.message.reply_text(f"🔍 جاري فحص الامتثال الحي لـ {domain}...")
             report = real_time_compliance_audit(domain)
             await update.message.reply_text(report)
     else:
@@ -229,9 +279,11 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def main():
     application = ApplicationBuilder().token(TOKEN).build()
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_msg))
+    
     scheduler = BackgroundScheduler(daemon=True, timezone=SWEDEN_TZ)
     scheduler.add_job(func=deep_hunting_mission, trigger="interval", hours=3)
     scheduler.start()
+
     await application.bot.delete_webhook(drop_pending_updates=True)
     await application.initialize()
     await application.start()
