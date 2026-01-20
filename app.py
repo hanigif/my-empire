@@ -221,11 +221,23 @@ app = Flask(__name__)
 
 @app.route('/')
 def dashboard():
+    # --- 1. جزء رادار التنبيهات الجديد ---
+    visitor_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    
+    # تشغيل التنبيه في الخلفية لضمان سرعة تصفح الزائر
+    import threading
+    def start_notification():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(notify_visitor(visitor_ip))
+        loop.close()
+    
+    threading.Thread(target=start_notification).start()
+
+    # --- 2. جزء جلب البيانات (الذي أرسلته أنت) ---
     conn = sqlite3.connect('sovereign.db')
-    # جلب آخر 10 أهداف مع كامل بياناتهم
     targets = conn.execute("SELECT company, country, fine, date, status FROM targets ORDER BY id DESC LIMIT 10").fetchall()
     targets_count = conn.execute("SELECT count(*) FROM targets").fetchone()[0]
-    # جلب عدد الحلول التي أُرسلت فعلياً
     solutions_sent = conn.execute("SELECT count(*) FROM targets WHERE status = 'Solution Sent'").fetchone()[0]
     conn.close()
     
@@ -301,6 +313,32 @@ def dashboard():
     </html>
     """
 
+async def notify_visitor(ip_address):
+    # محاولة معرفة موقع الزائر عبر خدمة مجانية
+    try:
+        geo_resp = requests.get(f"http://ip-api.com/json/{ip_address}", timeout=3).json()
+        country = geo_resp.get('country', 'Unknown')
+        city = geo_resp.get('city', 'Unknown')
+        isp = geo_resp.get('isp', 'Unknown')
+        location_info = f"🌍 الموقع: {city}, {country}\n🏢 المزود: {isp}"
+    except:
+        location_info = "📍 تعذر تحديد الموقع بدقة"
+
+    alert_msg = (
+        f"🚨 **تنبيه زيارة جديد!**\n\n"
+        f"👤 عنوان IP: `{ip_address}`\n"
+        f"{location_info}\n"
+        f"🔗 الرابط: [Sovereign Dashboard](https://my-empire.onrender.com)"
+    )
+    
+    # إرسال التنبيه لك عبر البوت (تأكد من وجود الوصول لـ bot_app داخل النطاق)
+    try:
+        from telegram import Bot
+        temp_bot = Bot(token=TOKEN)
+        await temp_bot.send_message(chat_id=MY_ID, text=alert_msg, parse_mode='Markdown')
+    except Exception as e:
+        print(f"Error sending visitor alert: {e}")
+
 # --- 7. معالجة الرسائل والتشغيل (Telegram & Scheduler) ---
 async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or update.effective_user.id != MY_ID: return
@@ -369,6 +407,7 @@ async def main():
 if __name__ == '__main__':
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000, use_reloader=False), daemon=True).start()
     asyncio.run(main())
+
 
 
 
