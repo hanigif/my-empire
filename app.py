@@ -267,17 +267,23 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         company_name = text.replace("حل ", "").strip()
         await update.message.reply_text(f"📦 جاري تحضير حقيبة 'Sovereign Proxy' لشركة {company_name}...")
         
-        pitch_prompt = f"Write a professional CEO-level pitch for {company_name}. Explain that we found data leaks and our 'SovereignProxy.py' is the solution. Language: Swedish."
+        pitch_prompt = f"Write a professional CEO-level pitch for {company_name}. Focus on how SovereignProxy.py solves NIS2 compliance. Keep it concise but powerful. Language: Swedish."
         pitch = ai_engine.ask(pitch_prompt, "Swedish B2B Sales Expert")
         
         if os.path.exists("SovereignProxy.py"):
             try:
+                # 1. إرسال رسالة البيع أولاً (لتجنب حد الـ 1024 حرف في الـ Caption)
+                await update.message.reply_text(f"🚀 **عرض الحل لـ {company_name}:**\n\n{pitch}", parse_mode='Markdown')
+                
+                # 2. إرسال الملف بعد الرسالة مباشرة
                 with open("SovereignProxy.py", "rb") as f:
                     await context.bot.send_document(
                         chat_id=MY_ID, 
                         document=f, 
-                        caption=f"🚀 عرض سعر وحل تقني لـ {company_name}:\n\n{pitch}"
+                        caption=f"SovereignProxy.py for {company_name}"
                     )
+                
+                # تحديث قاعدة البيانات
                 conn = sqlite3.connect('sovereign.db')
                 conn.execute("UPDATE targets SET status = 'Solution Sent' WHERE company LIKE ?", (f"%{company_name}%",))
                 conn.commit()
@@ -315,4 +321,5 @@ async def main():
 if __name__ == '__main__':
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000, use_reloader=False), daemon=True).start()
     asyncio.run(main())
+
 
