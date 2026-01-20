@@ -219,91 +219,112 @@ def real_time_compliance_audit(domain):
 # --- 6. واجهة الويب (Dashboard) ---
 app = Flask(__name__)
 
+# إعدادات التوقيت السويدي
+SWEDEN_TZ_OFFSET = 1 # CET
+
+def get_sweden_time():
+    return (datetime.datetime.utcnow() + datetime.timedelta(hours=SWEDEN_TZ_OFFSET)).strftime('%Y-%m-%d %H:%M:%S')
+
+# --- 1. إعداد قاعدة البيانات المركزية ---
+def init_db():
+    conn = sqlite3.connect('sovereign_core.db')
+    conn.execute('''CREATE TABLE IF NOT EXISTS intelligence 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                  company_name TEXT, 
+                  risk_level TEXT, 
+                  status TEXT, 
+                  discovery_date TEXT)''')
+    # إضافة بيانات تجريبية لأول مرة فقط
+    cursor = conn.cursor()
+    cursor.execute("SELECT count(*) FROM intelligence")
+    if cursor.fetchone()[0] == 0:
+        conn.execute("INSERT INTO intelligence (company_name, risk_level, status, discovery_date) VALUES (?,?,?,?)",
+                     ("Sovereign Official Site", "SECURE", "PROTECTED", get_sweden_time()))
+    conn.commit()
+    conn.close()
+
+init_db()
+
 @app.route('/')
 def dashboard():
-    # نظام التنبيهات (الرادار)
-    visitor_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-    import threading
-    threading.Thread(target=lambda: asyncio.run(notify_visitor(visitor_ip))).start()
-
-    conn = sqlite3.connect('sovereign.db')
-    targets = conn.execute("SELECT company, country, fine, date, status FROM targets ORDER BY id DESC LIMIT 10").fetchall()
-    # إحصائيات
-    targets_count = conn.execute("SELECT count(*) FROM targets").fetchone()[0]
-    solutions_sent = conn.execute("SELECT count(*) FROM targets WHERE status = 'Solution Sent'").fetchone()[0]
+    conn = sqlite3.connect('sovereign_core.db')
+    intelligence_data = conn.execute("SELECT company_name, risk_level, status, discovery_date FROM intelligence ORDER BY id DESC").fetchall()
     conn.close()
     
-    now_sw = datetime.datetime.now(SWEDEN_TZ).strftime('%Y-%m-%d %H:%M:%S')
+    now_sw = get_sweden_time()
     
     return f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
-        <meta charset="UTF-8"><title>Sovereign Manager | Enterprise</title>
+        <meta charset="UTF-8">
+        <title>Sovereign Manager | Global HQ</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
-            body {{ background-color: #020617; color: #f8fafc; }}
-            .cyber-card {{ background: rgba(30, 41, 59, 0.4); border: 1px solid #1e293b; backdrop-filter: blur(10px); }}
-            .partner-glow {{ box-shadow: 0 0 20px rgba(56, 189, 248, 0.2); border: 1px solid #38bdf8; }}
+            body {{ background-color: #020617; color: #f8fafc; font-family: 'Inter', sans-serif; }}
+            .cyber-card {{ background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; backdrop-filter: blur(12px); }}
+            .status-glow {{ box-shadow: 0 0 15px rgba(56, 189, 248, 0.1); }}
         </style>
     </head>
-    <body class="p-8 font-sans">
+    <body class="p-8">
         <div class="max-w-6xl mx-auto">
-            <div class="flex justify-between items-end border-b border-slate-800 pb-6 mb-8">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-8 mb-10">
                 <div>
-                    <h1 class="text-4xl font-black text-white tracking-tighter text-sky-400">SOVEREIGN CORE v2.0</h1>
-                    <p class="text-slate-500 font-mono text-sm">ACTIVE NODE: STOCKHOLM_SWEDEN</p>
+                    <h1 class="text-4xl font-black tracking-tighter text-white">
+                        SOVEREIGN <span class="text-sky-500">MANAGER</span>
+                    </h1>
+                    <p class="text-slate-500 font-mono text-xs mt-2 uppercase tracking-widest">Master Node: Stockholm // Encryption: Active</p>
                 </div>
-                <div class="text-right font-mono text-sky-500">
-                    <p>{now_sw}</p>
-                    <p class="text-xs">LAT: 59.3293 | LON: 18.0686</p>
-                </div>
-            </div>
-
-            <div class="cyber-card partner-glow p-6 rounded-2xl mb-10 bg-gradient-to-r from-slate-900 to-sky-900/20">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <span class="bg-sky-500 text-black text-xs font-bold px-2 py-1 rounded mb-2 inline-block text-white">OFFICIAL PARTNER</span>
-                        <h2 class="text-2xl font-bold">Globiversal Group AB</h2>
-                        <p class="text-slate-400">Status: <span class="text-emerald-400 font-mono animate-pulse">● PROXY_ACTIVE</span> | Compliance: NIS2/GDPR Certified</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-xs text-slate-500 mb-1">DATA SCRUBBING RATE</p>
-                        <p class="text-2xl font-mono text-sky-400">100%</p>
-                    </div>
+                <div class="text-right font-mono">
+                    <p class="text-sky-500 text-lg">{now_sw}</p>
+                    <p class="text-slate-600 text-xs italic">Sovereign Time Protocol</p>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                <div class="cyber-card p-6 rounded-xl border-l-4 border-sky-500">
-                    <h3 class="text-slate-500 text-xs font-bold uppercase tracking-widest">Total Scouts</h3>
-                    <p class="text-4xl font-black mt-2">{targets_count}</p>
+                <div class="cyber-card p-6 rounded-2xl border-t-2 border-sky-500">
+                    <h3 class="text-slate-500 text-xs font-bold uppercase">System Integrity</h3>
+                    <p class="text-3xl font-black mt-2 text-white">99.9%</p>
                 </div>
-                <div class="cyber-card p-6 rounded-xl border-l-4 border-emerald-500">
-                    <h3 class="text-slate-500 text-xs font-bold uppercase tracking-widest">Sent Solutions</h3>
-                    <p class="text-4xl font-black mt-2">{solutions_sent}</p>
+                <div class="cyber-card p-6 rounded-2xl border-t-2 border-emerald-500">
+                    <h3 class="text-slate-500 text-xs font-bold uppercase">Active Shield</h3>
+                    <p class="text-3xl font-black mt-2 text-emerald-400 font-mono text-sm">sovereign-core-proxy</p>
                 </div>
-                <div class="cyber-card p-6 rounded-xl border-l-4 border-amber-500">
-                    <h3 class="text-slate-500 text-xs font-bold uppercase tracking-widest">Risk Mitigation</h3>
-                    <p class="text-4xl font-black mt-2">ACTIVE</p>
+                <div class="cyber-card p-6 rounded-2xl border-t-2 border-amber-500">
+                    <h3 class="text-slate-500 text-xs font-bold uppercase">Scouted Companies</h3>
+                    <p class="text-4xl font-black mt-2">{len(intelligence_data)}</p>
                 </div>
             </div>
 
-            <div class="cyber-card rounded-xl overflow-hidden border border-slate-800">
+            <div class="cyber-card rounded-2xl overflow-hidden border border-slate-800 status-glow">
+                <div class="p-6 border-b border-slate-800 bg-slate-900/50">
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <span class="h-3 w-3 bg-sky-500 rounded-full animate-pulse"></span>
+                        Real-time Intelligence Feed
+                    </h2>
+                </div>
                 <table class="w-full text-left">
-                    <thead class="bg-slate-900/80">
-                        <tr class="text-slate-400 text-xs uppercase tracking-widest">
-                            <th class="p-4">Entity</th><th class="p-4">Compliance Status</th><th class="p-4">Discovery</th>
+                    <thead>
+                        <tr class="text-slate-500 text-xs uppercase bg-slate-900/30">
+                            <th class="p-4">Target Entity</th>
+                            <th class="p-4">Risk Level</th>
+                            <th class="p-4">System Status</th>
+                            <th class="p-4">Timestamp</th>
                         </tr>
                     </thead>
                     <tbody class="text-sm">
-                        {" ".join([f'''<tr class="border-b border-slate-800/50 hover:bg-white/5 transition-colors">
-                            <td class="p-4 font-bold text-slate-200">{t[0]}</td>
-                            <td class="p-4"><span class="flex items-center gap-2">
-                                <span class="h-2 w-2 rounded-full {"bg-emerald-500" if t[4] == 'Solution Sent' else "bg-amber-500"}"></span>
-                                {t[4] if t[4] else 'Scouted'}</span></td>
-                            <td class="p-4 text-slate-500 font-mono">{t[3]}</td>
-                        </tr>''' for t in targets])}
+                        {" ".join([f'''
+                        <tr class="border-b border-slate-800/50 hover:bg-sky-500/5 transition-colors">
+                            <td class="p-4 font-bold text-slate-200">{d[0]}</td>
+                            <td class="p-4">
+                                <span class="px-2 py-1 rounded-md text-[10px] font-bold border 
+                                {"border-emerald-500 text-emerald-500" if d[1] == 'SECURE' else "border-red-500 text-red-500"}">
+                                    {d[1]}
+                                </span>
+                            </td>
+                            <td class="p-4 text-slate-300 font-mono">{d[2]}</td>
+                            <td class="p-4 text-slate-500 text-xs">{d[3]}</td>
+                        </tr>''' for d in intelligence_data])}
                     </tbody>
                 </table>
             </div>
@@ -311,6 +332,10 @@ def dashboard():
     </body>
     </html>
     """
+
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
 
 async def notify_visitor(ip_address):
     # محاولة معرفة موقع الزائر عبر خدمة مجانية
@@ -406,6 +431,7 @@ async def main():
 if __name__ == '__main__':
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000, use_reloader=False), daemon=True).start()
     asyncio.run(main())
+
 
 
 
