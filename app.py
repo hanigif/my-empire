@@ -262,16 +262,38 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "اصطاد":
         await update.message.reply_text("⚖️ الرادار يعمل.. جاري مسح الأسواق السويدية...")
         threading.Thread(target=deep_hunting_mission).start()
-    elif text.startswith("قطاع"):
-        sector = text.split(" ")[1] if " " in text else "General"
-        await update.message.reply_text(f"🎯 توجيه الرادار نحو قطاع: {sector}")
-        threading.Thread(target=deep_hunting_mission, args=(sector,)).start()
+
+    elif text.startswith("حل"):
+        company_name = text.replace("حل ", "").strip()
+        await update.message.reply_text(f"📦 جاري تحضير حقيبة 'Sovereign Proxy' لشركة {company_name}...")
+        
+        pitch_prompt = f"Write a professional CEO-level pitch for {company_name}. Explain that we found data leaks and our 'SovereignProxy.py' is the solution. Language: Swedish."
+        pitch = ai_engine.ask(pitch_prompt, "Swedish B2B Sales Expert")
+        
+        if os.path.exists("SovereignProxy.py"):
+            try:
+                with open("SovereignProxy.py", "rb") as f:
+                    await context.bot.send_document(
+                        chat_id=MY_ID, 
+                        document=f, 
+                        caption=f"🚀 عرض سعر وحل تقني لـ {company_name}:\n\n{pitch}"
+                    )
+                conn = sqlite3.connect('sovereign.db')
+                conn.execute("UPDATE targets SET status = 'Solution Sent' WHERE company LIKE ?", (f"%{company_name}%",))
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                await update.message.reply_text(f"❌ خطأ: {str(e)}")
+        else:
+            await update.message.reply_text("❌ ملف SovereignProxy.py غير موجود.")
+
     elif text.startswith("فحص"):
         domain = text.split(" ")[1] if " " in text else None
         if domain:
-            await update.message.reply_text(f"🔍 جاري فحص الامتثال الحي لـ {domain}...")
+            await update.message.reply_text(f"🔍 جاري فحص الامتثال لـ {domain}...")
             report = real_time_compliance_audit(domain)
             await update.message.reply_text(report)
+    
     else:
         response = ai_engine.ask(text)
         await update.message.reply_text(response)
@@ -293,3 +315,4 @@ async def main():
 if __name__ == '__main__':
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000, use_reloader=False), daemon=True).start()
     asyncio.run(main())
+
