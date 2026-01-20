@@ -12,6 +12,7 @@ from cryptography.fernet import Fernet
 import pyotp 
 from fpdf import FPDF
 import qrcode
+import trafilatura
 
 # --- 1. الإعدادات الأساسية والسيادية ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -28,7 +29,7 @@ cipher_suite = Fernet(S_KEY.encode())
 TOTP_SECRET = os.environ.get("TOTP_SECRET", "JBSWY3DPEHPK3PXP")
 totp_verifier = pyotp.TOTP(TOTP_SECRET, interval=1)
 
-# --- 2. قاعدة البيانات والذاكرة (Sovereign DB & Memory) ---
+# --- 2. قاعدة البيانات والذاكرة ---
 def init_db():
     conn = sqlite3.connect('sovereign.db')
     c = conn.cursor()
@@ -92,7 +93,6 @@ def create_rich_report(analysis_data):
     pdf = SovereignPDF()
     pdf.add_page()
     
-    # إضافة ختم "سري للغاية" كخلفية (Watermark)
     pdf.set_font("Arial", 'B', 50)
     pdf.set_text_color(240, 240, 240)
     pdf.rotate(45, 105, 155)
@@ -102,7 +102,6 @@ def create_rich_report(analysis_data):
     pdf.ln(25)
     pdf.set_text_color(30, 41, 59)
     
-    # تقسيم النص إلى أقسام احترافية
     for line in analysis_data.split('\n'):
         if ':' in line:
             title, content = line.split(':', 1)
@@ -117,7 +116,7 @@ def create_rich_report(analysis_data):
     pdf.output(file_name)
     return file_name
 
-# --- 5. رادار الصيد (The Hunter Mission) ---
+# --- 5. رادار الصيد والتدقيق (The Mission) ---
 def deep_hunting_mission(sector="General"):
     try:
         query = f"latest GDPR fines 2025 2026 {sector} companies Europe Swedish news"
@@ -126,15 +125,13 @@ def deep_hunting_mission(sector="General"):
         mission_prompt = f"""
         Based on this data: {raw_data[:2500]}
         1. Identify a NEW real company recently fined (Prefer Swedish if available).
-        2. Analyze the 'Financial Wound' (Fine amount vs impact).
+        2. Analyze the 'Financial Wound'.
         3. Craft a 'Sovereign Shield' solution.
         4. Write a professional CEO Pitch in the company's local language.
         Format: TARGET, COUNTRY, WOUND, SHIELD, PITCH.
         """
-        
         analysis = ai_engine.ask(mission_prompt, "Senior Sovereign Strategist")
         
-        # حفظ في قاعدة البيانات
         try:
             lines = analysis.split('\n')
             comp = [l for l in lines if "TARGET" in l][0].split(':')[1].strip()
@@ -145,7 +142,6 @@ def deep_hunting_mission(sector="General"):
         except: pass
 
         pdf_path = create_rich_report(analysis)
-        
         url = f"https://api.telegram.org/bot{TOKEN}/sendDocument"
         with open(pdf_path, "rb") as f:
             requests.post(url, data={"chat_id": MY_ID, "caption": f"🚨 رادار السيادة: تم اصطياد هدف في قطاع {sector}"}, files={"document": f})
@@ -153,7 +149,18 @@ def deep_hunting_mission(sector="General"):
     except Exception as e:
         logging.error(f"Hunting Error: {e}")
 
-# --- 6. واجهة الويب والـ API ---
+def real_time_compliance_audit(domain):
+    downloaded = trafilatura.fetch_url(f"{domain}/privacy-policy") or trafilatura.fetch_url(domain)
+    web_text = trafilatura.extract(downloaded) if downloaded else "No content"
+    
+    audit_prompt = f"""
+    ANALYSIS TASK: Conduct a STRICT Legal & Technical audit based on Swedish NIS2 and GDPR.
+    SOURCE TEXT: {web_text[:4000]}
+    OUTPUT: List REAL VIOLATIONS and POTENTIAL FINE.
+    """
+    return ai_engine.ask(audit_prompt, "Senior Swedish Data Auditor")
+
+# --- 6. واجهة الويب (Dashboard) ---
 app = Flask(__name__)
 
 @app.route('/')
@@ -162,91 +169,61 @@ def dashboard():
     targets = conn.execute("SELECT * FROM targets ORDER BY id DESC LIMIT 5").fetchall()
     targets_count = conn.execute("SELECT count(*) FROM targets").fetchone()[0]
     conn.close()
-    
     now_sw = datetime.datetime.now(SWEDEN_TZ).strftime('%Y-%m-%d %H:%M:%S')
     
-    # HTML/CSS الواجهة الاحترافية
     return f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Sovereign Manager | Control Center</title>
+        <meta charset="UTF-8"><title>Sovereign Manager | Control</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
-            body {{ background-color: #020617; color: #f8fafc; font-family: 'Inter', sans-serif; }}
+            body {{ background-color: #020617; color: #f8fafc; }}
             .cyber-card {{ background: rgba(30, 41, 59, 0.5); border: 1px solid #38bdf8; backdrop-filter: blur(10px); }}
-            .glow-text {{ text-shadow: 0 0 10px #38bdf8; }}
-            .scan-line {{ height: 2px; background: #38bdf8; position: absolute; width: 100%; animation: scan 3s infinite; opacity: 0.3; }}
-            @keyframes scan {{ 0% {{ top: 0; }} 100% {{ top: 100%; }} }}
         </style>
     </head>
     <body class="p-8">
         <div class="max-w-6xl mx-auto">
             <div class="flex justify-between items-center border-b border-slate-700 pb-6 mb-8">
-                <div>
-                    <h1 class="text-3xl font-bold glow-text text-sky-400">🛡️ SOVEREIGN MANAGER CORE</h1>
-                    <p class="text-slate-400">Enterprise Data Compliance Intelligence v2.0</p>
-                </div>
-                <div class="text-right">
-                    <p class="text-sm text-slate-500">SYSTEM TIME (SWEDEN)</p>
-                    <p class="font-mono text-sky-300">{now_sw}</p>
-                </div>
+                <h1 class="text-3xl font-bold text-sky-400">🛡️ SOVEREIGN MANAGER CORE</h1>
+                <p class="font-mono text-sky-300">{now_sw}</p>
             </div>
-
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="cyber-card p-6 rounded-xl relative overflow-hidden">
-                    <div class="scan-line"></div>
-                    <h3 class="text-slate-400 text-sm mb-2">TARGETS CAPTURED</h3>
-                    <p class="text-5xl font-black text-sky-400">{targets_count}</p>
-                </div>
-                <div class="cyber-card p-6 rounded-xl border-emerald-500/50">
-                    <h3 class="text-slate-400 text-sm mb-2">COMPLIANCE SHIELD</h3>
-                    <p class="text-5xl font-black text-emerald-400">99.9%</p>
-                </div>
-                <div class="cyber-card p-6 rounded-xl border-amber-500/50">
-                    <h3 class="text-slate-400 text-sm mb-2">MARKET THREAT LEVEL</h3>
-                    <p class="text-5xl font-black text-amber-400">HIGH</p>
-                </div>
+                <div class="cyber-card p-6 rounded-xl"><h3>TARGETS CAPTURED</h3><p class="text-5xl font-black text-sky-400">{targets_count}</p></div>
+                <div class="cyber-card p-6 rounded-xl"><h3>SHIELD STATUS</h3><p class="text-5xl font-black text-emerald-400">99.9%</p></div>
+                <div class="cyber-card p-6 rounded-xl"><h3>THREAT LEVEL</h3><p class="text-5xl font-black text-amber-400">HIGH</p></div>
             </div>
-
             <div class="cyber-card rounded-xl overflow-hidden">
-                <div class="p-4 border-b border-slate-700 bg-slate-800/50">
-                    <h2 class="font-bold text-sky-400 uppercase tracking-widest">Live Target Intelligence</h2>
-                </div>
                 <table class="w-full text-left">
-                    <thead class="bg-slate-900/50 text-slate-500 text-xs">
-                        <tr>
-                            <th class="p-4">ENTITY NAME</th>
-                            <th class="p-4">STATUS</th>
-                            <th class="p-4">TIMESTAMP</th>
-                        </tr>
-                    </thead>
-                    <tbody class="text-sm">
-                        {" ".join([f'<tr class="border-b border-slate-800"><td class="p-4 font-bold">{t[1]}</td><td class="p-4 text-emerald-400 text-xs">● ANALYZED</td><td class="p-4 text-slate-500 font-mono">{t[4]}</td></tr>' for t in targets])}
+                    <thead class="bg-slate-900/50"><tr><th class="p-4">ENTITY</th><th class="p-4">STATUS</th><th class="p-4">TIME</th></tr></thead>
+                    <tbody>
+                        {" ".join([f'<tr class="border-b border-slate-800"><td class="p-4">{t[1]}</td><td class="p-4 text-emerald-400">● ANALYZED</td><td class="p-4">{t[4]}</td></tr>' for t in targets])}
                     </tbody>
                 </table>
             </div>
-            
-            <p class="mt-8 text-center text-slate-600 text-xs italic italic">Confidential Property of Sovereign Security Group. Unauthorized access is strictly prohibited.</p>
         </div>
     </body>
     </html>
     """
 
-# --- 7. معالجة الرسائل والتشغيل ---
+# --- 7. معالجة الرسائل والتشغيل (Telegram & Scheduler) ---
 async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or update.effective_user.id != MY_ID: return
     text = update.message.text.strip()
     
     if text == "اصطاد":
-        await update.message.reply_text("⚖️ الرادار يعمل.. جاري مسح الأسواق...")
+        await update.message.reply_text("⚖️ الرادار يعمل.. جاري مسح الأسواق السويدية...")
         threading.Thread(target=deep_hunting_mission).start()
     elif text.startswith("قطاع"):
         sector = text.split(" ")[1] if " " in text else "General"
         await update.message.reply_text(f"🎯 توجيه الرادار نحو قطاع: {sector}")
         threading.Thread(target=deep_hunting_mission, args=(sector,)).start()
+    elif text.startswith("فحص"):
+        domain = text.split(" ")[1] if " " in text else None
+        if domain:
+            await update.message.reply_text(f"🔍 جاري فحص الامتثال الحي لـ {domain}...")
+            report = real_time_compliance_audit(domain)
+            await update.message.reply_text(report)
     else:
         response = ai_engine.ask(text)
         await update.message.reply_text(response)
@@ -262,11 +239,9 @@ async def main():
     await application.bot.delete_webhook(drop_pending_updates=True)
     await application.initialize()
     await application.start()
-    await application.updater.start_polling(drop_pending_updates=True)
+    await application.updater.start_polling()
     while True: await asyncio.sleep(1)
 
 if __name__ == '__main__':
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000, use_reloader=False), daemon=True).start()
     asyncio.run(main())
-
-
