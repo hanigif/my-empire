@@ -33,8 +33,16 @@ totp_verifier = pyotp.TOTP(TOTP_SECRET, interval=1)
 def init_db():
     conn = sqlite3.connect('sovereign.db')
     c = conn.cursor()
+    # إنشاء الجدول الأساسي إذا لم يكن موجوداً
     c.execute('''CREATE TABLE IF NOT EXISTS targets 
-                 (id INTEGER PRIMARY KEY, company TEXT, country TEXT, fine TEXT, date TEXT)''')
+                 (id INTEGER PRIMARY KEY, company TEXT, country TEXT, fine TEXT, date TEXT, status TEXT)''')
+    
+    # فحص إذا كان عمود status موجوداً بالفعل، وإذا لم يوجد يتم إضافته
+    c.execute("PRAGMA table_info(targets)")
+    columns = [column[1] for column in c.fetchall()]
+    if 'status' not in columns:
+        c.execute("ALTER TABLE targets ADD COLUMN status TEXT DEFAULT 'Scouted'")
+        
     conn.commit()
     conn.close()
 
@@ -322,6 +330,7 @@ async def main():
 if __name__ == '__main__':
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000, use_reloader=False), daemon=True).start()
     asyncio.run(main())
+
 
 
 
