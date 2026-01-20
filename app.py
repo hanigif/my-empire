@@ -222,40 +222,79 @@ app = Flask(__name__)
 @app.route('/')
 def dashboard():
     conn = sqlite3.connect('sovereign.db')
-    targets = conn.execute("SELECT * FROM targets ORDER BY id DESC LIMIT 5").fetchall()
+    # جلب آخر 10 أهداف مع كامل بياناتهم
+    targets = conn.execute("SELECT company, country, fine, date, status FROM targets ORDER BY id DESC LIMIT 10").fetchall()
     targets_count = conn.execute("SELECT count(*) FROM targets").fetchone()[0]
+    # جلب عدد الحلول التي أُرسلت فعلياً
+    solutions_sent = conn.execute("SELECT count(*) FROM targets WHERE status = 'Solution Sent'").fetchone()[0]
     conn.close()
+    
     now_sw = datetime.datetime.now(SWEDEN_TZ).strftime('%Y-%m-%d %H:%M:%S')
     
     return f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
-        <meta charset="UTF-8"><title>Sovereign Manager | Control</title>
+        <meta charset="UTF-8"><title>Sovereign Manager | Control Center</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
             body {{ background-color: #020617; color: #f8fafc; }}
             .cyber-card {{ background: rgba(30, 41, 59, 0.5); border: 1px solid #38bdf8; backdrop-filter: blur(10px); }}
+            .status-glow-sent {{ color: #4ade80; text-shadow: 0 0 10px rgba(74, 222, 128, 0.5); }}
+            .status-glow-scouted {{ color: #fbbf24; text-shadow: 0 0 10px rgba(251, 191, 36, 0.5); }}
         </style>
     </head>
     <body class="p-8">
         <div class="max-w-6xl mx-auto">
             <div class="flex justify-between items-center border-b border-slate-700 pb-6 mb-8">
-                <h1 class="text-3xl font-bold text-sky-400">🛡️ SOVEREIGN MANAGER CORE</h1>
-                <p class="font-mono text-sky-300">{now_sw}</p>
+                <div>
+                    <h1 class="text-3xl font-bold text-sky-400">🛡️ SOVEREIGN MANAGER CORE</h1>
+                    <p class="text-slate-400 text-sm">Sovereign Data Compliance Lead Generation</p>
+                </div>
+                <p class="font-mono text-sky-300 text-right">{now_sw}<br><span class="text-xs text-slate-500 font-sans">Stockholm, Sweden</span></p>
             </div>
+
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="cyber-card p-6 rounded-xl"><h3>TARGETS CAPTURED</h3><p class="text-5xl font-black text-sky-400">{targets_count}</p></div>
-                <div class="cyber-card p-6 rounded-xl"><h3>SHIELD STATUS</h3><p class="text-5xl font-black text-emerald-400">99.9%</p></div>
-                <div class="cyber-card p-6 rounded-xl"><h3>THREAT LEVEL</h3><p class="text-5xl font-black text-amber-400">HIGH</p></div>
+                <div class="cyber-card p-6 rounded-xl text-center">
+                    <h3 class="text-slate-400 text-sm mb-2">TARGETS SCOUTED</h3>
+                    <p class="text-5xl font-black text-sky-400">{targets_count}</p>
+                </div>
+                <div class="cyber-card p-6 rounded-xl text-center">
+                    <h3 class="text-slate-400 text-sm mb-2">SOLUTIONS DELIVERED</h3>
+                    <p class="text-5xl font-black text-emerald-400">{solutions_sent}</p>
+                </div>
+                <div class="cyber-card p-6 rounded-xl text-center">
+                    <h3 class="text-slate-400 text-sm mb-2">PII PROTECTED</h3>
+                    <p class="text-5xl font-black text-amber-400">ACTIVE</p>
+                </div>
             </div>
-            <div class="cyber-card rounded-xl overflow-hidden">
+
+            <div class="cyber-card rounded-xl overflow-hidden shadow-2xl">
                 <table class="w-full text-left">
-                    <thead class="bg-slate-900/50"><tr><th class="p-4">ENTITY</th><th class="p-4">STATUS</th><th class="p-4">TIME</th></tr></thead>
+                    <thead class="bg-slate-900/80 text-sky-400">
+                        <tr>
+                            <th class="p-4">COMPANY ENTITY</th>
+                            <th class="p-4">COMPLIANCE STATUS</th>
+                            <th class="p-4">DISCOVERY DATE</th>
+                        </tr>
+                    </thead>
                     <tbody>
-                        {" ".join([f'<tr class="border-b border-slate-800"><td class="p-4">{t[1]}</td><td class="p-4 text-emerald-400">● ANALYZED</td><td class="p-4">{t[4]}</td></tr>' for t in targets])}
+                        {" ".join([f'''
+                        <tr class="border-b border-slate-800 hover:bg-slate-800/30 transition-colors">
+                            <td class="p-4 font-semibold">{t[0]}</td>
+                            <td class="p-4">
+                                <span class="{"status-glow-sent" if t[4] == 'Solution Sent' else "status-glow-scouted"}">
+                                    ● {t[4] if t[4] else 'Scouted'}
+                                </span>
+                            </td>
+                            <td class="p-4 text-slate-400 text-sm">{t[3]}</td>
+                        </tr>''' for t in targets])}
                     </tbody>
                 </table>
+            </div>
+            
+            <div class="mt-6 text-center text-slate-600 text-xs">
+                &copy; 2026 Sovereign Data Agent | Sweden Compliance Operation
             </div>
         </div>
     </body>
@@ -330,6 +369,7 @@ async def main():
 if __name__ == '__main__':
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000, use_reloader=False), daemon=True).start()
     asyncio.run(main())
+
 
 
 
